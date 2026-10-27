@@ -12,6 +12,10 @@ DS = {"type": "prometheus", "uid": "victoriametrics"}
 HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926"}  # dataviz categorical slots 1-2 (dark)
 # Login stages use the next slots (3-5) so they never borrow a host's color.
 STAGE_COLORS = {"connect": "#199e70", "auth": "#c98500", "shell": "#d55181"}
+# NFS ops take categorical slots 1-7 in order; OTHER is neutral gray, not a hue.
+OP_COLORS = {"READ": "#3987e5", "WRITE": "#d95926", "GETATTR": "#199e70", "LOOKUP": "#c98500",
+             "ACCESS": "#d55181", "OPEN": "#008300", "CLOSE": "#9085e9", "OTHER": "#8f8e86"}
+NFS_FS = ("helios", "shire", "shiren")
 GOOD, WARN, CRIT = "#0ca30c", "#fab219", "#d03b3b"
 pid = 0
 
@@ -160,6 +164,45 @@ stages = panel("timeseries", "Login stages: $host", (0, y + 8, 24, 9),
     extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2})
 panels.append(stages)
 y += 17
+
+def per_call(metric, sel, by):
+    return (f'sum by ({by}) (rate(gadget_nfs_{metric}_seconds_total{{{sel}}}[$__interval])) '
+            f'/ sum by ({by}) (rate(gadget_nfs_ops_total{{{sel}}}[$__interval]))')
+
+panels.append(row("NFS", y)); y += 1
+for i, fs in enumerate(NFS_FS):
+    panels.append(ts(f"Queue wait per call: {fs}", (8 * i, y, 8, 8),
+        [target(per_call("queue", f'{H}, fs="{fs}"', "host"), "{{host}}")],
+        f"Average time an NFS call to {fs} waited in the client before being sent, over all "
+        "operations, from the kernel's per-mount counters. Rising queue wait means the client "
+        "has more requests than it can put on the wire (or the server is slow to free slots).",
+        "s", host_overrides()))
+    panels.append(ts(f"Round-trip time per call: {fs}", (8 * i, y + 8, 8, 8),
+        [target(per_call("rtt", f'{H}, fs="{fs}"', "host"), "{{host}}")],
+        f"Average time from sending an NFS call to {fs} until its reply arrived (network plus "
+        "server), over all operations. Calls still in progress are not counted until they "
+        "finish, so a hung server shows as a gap, not a spike.",
+        "s", host_overrides()))
+y += 16
+
+panels.append(row("NFS queue wait by operation", y)); y += 1
+for i, fs in enumerate(NFS_FS):
+    sel = f'host="$host", fs="{fs}"'
+    panels.append(panel("timeseries", f"Queue wait by operation: $host, {fs}", (0, y + 9 * i, 24, 9),
+        [target(per_call("queue", sel, "op"), "{{op}}")],
+        f"Average client-side queue wait per call to {fs}, per NFS operation. OPEN includes "
+        "OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, "
+        "LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
+        "s",
+        [{"matcher": {"id": "byName", "options": op},
+          "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
+         for op, c in OP_COLORS.items()],
+        {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never",
+         "spanNulls": 600000, "axisSoftMin": 0},
+        {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
+         "tooltip": {"mode": "multi", "sort": "desc"}},
+        extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2}))
+y += 27
 
 internals = [
     ts("Check duration", (0, y + 1, 12, 8),

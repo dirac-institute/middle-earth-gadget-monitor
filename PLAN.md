@@ -29,6 +29,11 @@ Where the build differs from the original plan:
 - **Added after the plan: an SSH login probe.** The collector times a fresh
   interactive login to each host by stage, every 5 minutes, backing off to
   every 15 after repeated timeouts. See README.md.
+- **Added after the plan: NFS client stats** (`checks/nfs.sh`) for helios,
+  shire and shiren: per-operation queue wait and round-trip time from
+  `/proc/self/mountstats` counters. An active round-trip probe (timed LOOKUP)
+  was considered and deferred; if added, only on shire/shiren, which are not
+  automounted.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 

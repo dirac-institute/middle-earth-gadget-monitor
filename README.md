@@ -104,6 +104,23 @@ back into the generator.
 | `cpu` | `gadget_cpu_seconds_total{mode}` (all cores combined), `gadget_cpu_count` |
 | `load` | `node_load1`, `node_load5`, `node_load15` |
 | `memory` | `node_memory_{MemTotal,MemFree,MemAvailable,SwapTotal,SwapFree}_bytes` |
+| `nfs` | `gadget_nfs_{ops,queue_seconds,rtt_seconds,execute_seconds}_total{fs,op}`, `gadget_nfs_volumes{fs}` |
+
+**`nfs`** reads the kernel's NFS client counters from `/proc/self/mountstats`
+(cumulative since mount; reading them never touches the network). `fs` is
+`helios` (every helios mount summed: home directories and apps share one
+filesystem), `shire` or `shiren` (separate storage on the same server). Other
+NFS servers are ignored. Mounts sharing a superblock report identical
+numbers, so each superblock is counted once; `gadget_nfs_volumes` is how many
+were summed. `op` is READ, WRITE, GETATTR, LOOKUP, ACCESS, OPEN (including
+OPEN_NOATTR), CLOSE or OTHER. Times:
+- `queue`: waiting in the client before the call was sent;
+- `rtt`: sent until the reply arrived;
+- `execute`: the whole call.
+
+Average per call over an interval is `rate(..._seconds_total) / rate(gadget_nfs_ops_total)`.
+A call is only counted when it finishes, so a hung server shows as a gap in
+these graphs rather than a spike.
 
 **Login probe** (built into the collector, not a file in `checks/`): every
 5 minutes, and every 15 after repeated timeouts, the collector opens a
