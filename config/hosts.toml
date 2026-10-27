@@ -1,0 +1,14 @@
+# Hosts monitored by the collector.
+#
+# Each host gets one persistent SSH session running the remote agent. `checks`
+# names files in checks/ (without .sh); omit it to run every check.
+
+user = "astro-gadget"
+
+[[host]]
+name = "arnor"
+address = "arnor.astro.washington.edu"
+
+[[host]]
+name = "gondor"
+address = "gondor.astro.washington.edu"
