@@ -26,6 +26,9 @@ Where the build differs from the original plan:
 - **`dev-startup.sh` has no fake target.** Without the key, hosts just show
   as unreachable.
 - **The dashboard is generated** by `grafana/gen_hosts_overview.py`.
+- **Added after the plan: an SSH login probe.** The collector times a fresh
+  interactive login to each host by stage, every 5 minutes, backing off to
+  every 15 after repeated timeouts. See README.md.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 

@@ -10,6 +10,8 @@ import json, sys
 
 DS = {"type": "prometheus", "uid": "victoriametrics"}
 HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926"}  # dataviz categorical slots 1-2 (dark)
+# Login stages use the next slots (3-5) so they never borrow a host's color.
+STAGE_COLORS = {"connect": "#199e70", "auth": "#c98500", "shell": "#d55181"}
 GOOD, WARN, CRIT = "#0ca30c", "#fab219", "#d03b3b"
 pid = 0
 
@@ -134,6 +136,30 @@ panels.append(stat("Swap free now", (20, y, 4, 9),
     "percent", [{"color": CRIT, "value": None}, {"color": WARN, "value": 10}, {"color": GOOD, "value": 25}],
     mappings=[{"type": "value", "options": {"-1": {"text": "no swap", "color": "text", "index": 0}}}], decimals=0))
 y += 9
+
+panels.append(row("SSH login", y)); y += 1
+panels.append(ts("Login time", (0, y, 24, 8),
+    [target(f'gadget_ssh_login_seconds{{{H}, stage="total"}}', "{{host}}")],
+    "Time for a brand-new interactive SSH login to reach a usable shell, probed every 5 minutes "
+    "(every 15 after repeated timeouts). Timeouts (60 s) show as FAIL on ssh_login in Check status.",
+    "s", host_overrides()))
+stages = panel("timeseries", "Login stages: $host", (0, y + 8, 24, 9),
+    [target(f'gadget_ssh_login_seconds{{host="$host", stage="{st}"}}', st, ref)
+     for st, ref in (("connect", "A"), ("auth", "B"), ("shell", "C"))],
+    "Where the login time goes, stacked. connect: DNS and TCP. auth: key exchange and authentication, "
+    "which on these hosts reads ~/.ssh/authorized_keys from the NFS home directory. shell: session setup, "
+    "login shell and profile until a typed command runs. A hung login shows only the stages it finished.",
+    "s",
+    [{"matcher": {"id": "byName", "options": st},
+      "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
+     for st, c in STAGE_COLORS.items()],
+    {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 70, "showPoints": "never",
+     "spanNulls": 600000, "axisSoftMin": 0, "stacking": {"mode": "normal", "group": "A"}},
+    {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
+     "tooltip": {"mode": "multi", "sort": "none"}},
+    extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2})
+panels.append(stages)
+y += 17
 
 internals = [
     ts("Check duration", (0, y + 1, 12, 8),

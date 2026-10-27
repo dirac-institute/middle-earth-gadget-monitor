@@ -164,6 +164,7 @@ podman compose up -d
 |---|---|
 | A host shows SSH `Down` | `podman logs gadget-monitor-collector`. "Host key verification failed" means the target's host key changed; update `config/known_hosts` once you're sure it's legitimate. "Permission denied" means the key or account on the target. Timeouts are network problems |
 | A check is `FAIL` | Open **Collector internals → Check outcome by reason**. `error`: run the check by hand (README.md). `timeout`: the check is too slow, or something it touches is hanging. `skipped_running`: a previous run is stuck and can't be killed, which almost always means hung NFS on the target |
+| `ssh_login` slow or `FAIL` | The **Login stages** panel shows where the time goes. Slow `auth` usually means the directory service (LDAP/sssd) or the NFS home directory (`authorized_keys` lives there). Slow `shell` points at the home directory or login scripts. The persistent sessions keep collecting the other checks either way |
 | Gaps without failures | The collector itself was down: `podman ps`, `podman logs` |
 | **Last backup** growing | `podman logs gadget-monitor-backup`. `REFUSED` explains itself; otherwise check that shire is mounted and writable by astro-gadget |
 | Can't log in as admin | The password is re-applied from shire on every Grafana start: `sudo -u astro-gadget cat /service/shire/gadget-monitor/secrets/grafana-admin-password` |
