@@ -11,6 +11,11 @@ Protocol: newline-delimited JSON on stdin/stdout.
   -> {"type": "ping", "id": 18}
   <- {"id": 18, "type": "pong", "ts_ms": ...}
 
+If nothing arrives from the collector for IDLE_EXIT_S (it pings every 60 s),
+the agent assumes the session is dead and exits. sshd on the target may never
+notice a client that vanished during a network outage, and without this the
+orphaned agent would linger.
+
 A check whose previous run is still alive (for example stuck in
 uninterruptible sleep on a hung NFS mount, where even SIGKILL cannot reap it)
 is not started again; the agent answers "skipped_running" instead, so stuck
@@ -29,6 +34,7 @@ import time
 
 VERSION = 1
 KILL_GRACE_S = 5
+IDLE_EXIT_S = 180
 MAX_OUTPUT_BYTES = 1 << 20
 CHECK_ENV = {
     "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -39,6 +45,7 @@ CHECK_ENV = {
 _out_lock = threading.Lock()
 _running_lock = threading.Lock()
 _running = {}  # check name -> Popen
+_last_rx = time.monotonic()
 
 
 def now_ms():
@@ -130,10 +137,20 @@ def shutdown():
     os._exit(0)
 
 
+def idle_watchdog():
+    while True:
+        time.sleep(10)
+        if time.monotonic() - _last_rx > IDLE_EXIT_S:
+            shutdown()
+
+
 def main():
+    global _last_rx
+    threading.Thread(target=idle_watchdog, daemon=True).start()
     send({"type": "hello", "version": VERSION, "ts_ms": now_ms(),
           "pid": os.getpid(), "hostname": os.uname().nodename})
     for line in sys.stdin.buffer:
+        _last_rx = time.monotonic()
         try:
             req = json.loads(line)
         except ValueError:
