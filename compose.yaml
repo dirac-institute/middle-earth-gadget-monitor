@@ -73,6 +73,8 @@ services:
         SVC_USER: "${SVC_USER}"
     image: localhost/gadget-monitor/collector:latest
     container_name: gadget-monitor-collector
+    # A real init as PID 1 so SIGTERM stops the container promptly.
+    init: true
     user: "${SVC_UID}:${SVC_GID}"
     environment:
       GADGET_VM_URL: http://victoriametrics:8428
@@ -89,6 +91,8 @@ services:
       context: backup
     image: localhost/gadget-monitor/backup:latest
     container_name: gadget-monitor-backup
+    # A real init as PID 1 so SIGTERM stops the container promptly.
+    init: true
     user: "${SVC_UID}:${SVC_GID}"
     command: ["/usr/local/bin/backup-loop.sh"]
     environment:

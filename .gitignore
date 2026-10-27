@@ -1,3 +1,5 @@
 secrets/
 # Written per-host by init.sh; must never be shared between hosts.
 .env
+# Local state for dev-startup.sh.
+dev-data/

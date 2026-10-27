@@ -1,146 +1,181 @@
-# Deploying the Middle-earth service example to a DiRAC VM
+# Deploying gadget-monitor
 
-Target: stock Rocky 9 VM on UW DiRAC infrastructure.
+Target: a Rocky VM on UW DiRAC infrastructure with `/service/shire` mounted
+and a separate local partition on `/local`. The VM's reverse proxy handles TLS
+and forwards to `127.0.0.1:8080`.
 
-The VM provides a reverse proxy that handles TLS termination and routes
-traffic to your container on port 8080.
+## First deployment
 
 ```bash
-git clone <this repo> /root/middle-earth-service-example
-cd /root/middle-earth-service-example
-sudo ./init.sh
+git clone <this repo> /root/middle-earth-gadget-monitor
+cd /root/middle-earth-gadget-monitor
+sudo ./init.sh            # see "Seeding local state" below
 podman compose up -d --build
+```
+
+On the very first deployment there is no backup yet, so `init.sh` stops and
+asks for `--fresh`:
+
+```bash
+sudo ./init.sh --fresh
 ```
 
 Then verify:
 
 ```bash
-curl http://localhost:8080/api/hello
-# {"message":"Hello from Middle-earth!","service":"example"}
-
-curl http://localhost:8080/
-# (static HTML page)
+podman ps                                   # four gadget-monitor-* containers, Up
+podman logs gadget-monitor-collector        # "arnor: agent up ...", "gondor: agent up ..."
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/   # 200
 ```
+
+Open the site, check that the **Hosts overview** dashboard shows data for
+both hosts, and that the **Last backup** tile shows an age under an hour.
 
 ## What each piece does
 
 | File | Role |
 |---|---|
-| `service.conf` | Single source of truth for the service account name, uid, and gid. Committed to the repo. Everything else reads from here. |
-| `init.sh` | Host-level only: podman + podman-compose, the service account, SSH hardening, SELinux, `.env`. Reads `service.conf`; idempotent; safe to re-run. |
-| `Dockerfile` | Apache httpd 2.4 + Python 3 + Flask/Gunicorn in one image. Apache serves static files and reverse-proxies `/api/` to Gunicorn. |
-| `start.sh` | Container entrypoint: starts Gunicorn in the background, then runs Apache in the foreground. |
-| `compose.yaml` | One service: `app` (Apache + Gunicorn in one container on port 8080). |
-| `app/server.py` | Flask application with one API endpoint (`GET /api/hello`). |
-| `app/static/index.html` | Static HTML page served directly by Apache. |
-| `apache/httpd.conf` | Apache virtual host: plain HTTP on 8080, static files from `/srv/static`, `/api/` proxied to Gunicorn on `127.0.0.1:8000`. |
-| `start.sh` | Container entrypoint: starts Gunicorn in the background, then runs Apache in the foreground. |
-| `dev-startup.sh` | Local development helper: exports environment variables and runs `docker compose` on macOS. |
-| `SECRETS.md` | How secrets are stored, the NFS ownership model, and permissions. |
+| `service.conf` | Service account name, uid and gid (astro-gadget). The single source of truth; everything else reads it via `.env` |
+| `init.sh` | Host-level setup only: podman, the service account, SSH hardening, `/local` and shire directories, the Grafana admin password, `.env`, and seeding/restoring local state |
+| `compose.yaml` | The four containers and their mounts |
+| `collector/` | Collector image: `collector.py` (scheduler, SSH sessions, VictoriaMetrics writer) plus the agent, checks and config copied in |
+| `agent/agent.py` | Remote agent, sent to each target over the SSH session. Python 3.9, stdlib only |
+| `checks/*.sh` | One check per file (see README.md, "Adding a check") |
+| `config/hosts.toml` | Hosts to monitor |
+| `config/known_hosts` | Pinned SSH host keys for the targets |
+| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password, dashboard generator |
+| `backup/` | Backup image: `backup-loop.sh` (scheduler), `backup-once.sh`, `restore.sh`, vmbackup/vmrestore binaries |
+| `dev-startup.sh` | Local development with Docker |
 
-## Architecture
+## Containers
 
-```
-                   ┌──────────────────────────────────────────┐
-  VM reverse  ──►  │  container                                │
-  proxy :8080      │    apache (port 8080)                     │
-                   │      /         → static files             │
-                   │      /api/*    → gunicorn (port 8000)     │
-                   └──────────────────────────────────────────┘
-```
+| Container | Image | Data | Network |
+|---|---|---|---|
+| `gadget-monitor-vm` | `victoriametrics/victoria-metrics` (pinned) | `/local/gadget-monitor/vm` | compose network only |
+| `gadget-monitor-grafana` | built from `grafana/` | `/local/gadget-monitor/grafana` | `127.0.0.1:8080` |
+| `gadget-monitor-collector` | built from `collector/Dockerfile` | none (the SSH key is copied to its tmpfs at start) | outbound SSH |
+| `gadget-monitor-backup` | built from `backup/` | `/local/gadget-monitor`, shire `backup/` | compose network |
 
-## Design choices
+All four run as astro-gadget (uid 1734450). That is required to read the
+secrets and write the backups on shire, which is exported with
+`root_squash`.
 
-**One container, two processes.** Apache and Gunicorn run in the same
-container. Apache handles static files and reverse-proxies API requests to
-Gunicorn on an internal port. The `start.sh` entrypoint launches Gunicorn in
-the background and runs Apache in the foreground as PID 1.
+## Updating
 
-**Containers for everything.** The only things `init.sh` does on the host are
-install podman, create the service account, harden SSH, and configure SELinux.
-All application logic, dependencies, and configuration live inside the
-container image. This means a deployment is fully reproducible from the repo
-checkout.
+After pulling changes (new checks, dashboard edits, code changes):
 
-**Secrets are bind-mounted, never baked in.** Any secrets the service needs
-are mounted read-only into the container at runtime. See `SECRETS.md` for the
-full story.
-
-**Service account with fixed uid/gid.** The service account name, uid, and gid
-are defined once in `service.conf` and flow into every other file — init.sh,
-the Dockerfile, and compose.yaml all read from it with no fallback defaults.
-The uid/gid must match the owner of secrets on the production NFS share, which
-is exported with `root_squash` — only that uid can read mode-0600 secrets. See
-`SECRETS.md` for details on why this matters.
-
-**Port 8080, localhost only.** The container listens on port 8080 and the
-compose file binds it to `127.0.0.1:8080`. The VM's reverse proxy handles
-TLS termination and routes external traffic to this port.
-
-## Service identity: `service.conf`
-
-`service.conf` is the single source of truth for the service account:
-
-```
-SVC_USER=astro-svc
-SVC_UID=1725455
-SVC_GID=2121725455
+```bash
+git pull
+sudo ./init.sh                                  # safe to re-run; refreshes .env
+podman compose up -d --build --force-recreate
 ```
 
-It is committed to the repo. `init.sh` reads it and writes the values into
-`.env` alongside the per-host FQDN. The Dockerfile and compose.yaml consume
-these values via build args and environment variables with no hardcoded
-defaults — if `service.conf` is missing or incomplete, `init.sh` exits
-immediately, and running `podman compose` without a populated `.env` will
-fail on the missing variables.
+**`--force-recreate` matters.** podman-compose rebuilds the images with
+`--build` but does not replace running containers whose image changed unless
+you also pass `--force-recreate`.
 
-## Per-host configuration: `.env`
+The database and Grafana state live on `/local`, so recreating containers
+loses nothing. Restarting the collector reconnects to both hosts within a
+second or two. The agents from the old sessions exit when their session
+closes.
 
-The only per-machine value is the host's own FQDN, which compose.yaml uses
-as the Apache `ServerName` and container hostname. `init.sh` writes it (along
-with the `service.conf` values) to `.env`, which podman compose reads
-automatically:
+## Storage and size budget
 
+| What | Where | Bound |
+|---|---|---|
+| Live database | `/local/gadget-monitor/vm` | 100 days retention; series caps (20k per hour, 50k per day). The backup refuses to copy anything if it grows past 4.5 GiB |
+| Grafana state | `/local/gadget-monitor/grafana` | small |
+| Backups | `/service/shire/gadget-monitor/backup/{latest,daily}` | 2 × the live database, so under 10 GB |
+
+Today the database is a few MB. Growth comes from the number of distinct
+series, not from depth of history (see README.md, "Adding a check"). The
+**Storage** tile on the dashboard shows both sizes.
+
+## Backups
+
+The backup container runs `backup-once.sh` every hour at minute 7:
+
+1. It refuses unless `/local/gadget-monitor/.seeded` exists, and refuses if
+   the database is over 4.5 GiB.
+2. `vmbackup` takes an instant snapshot and copies only the changed files to
+   `backup/latest/vm`.
+3. `grafana.db` is copied consistently with SQLite `.backup`.
+4. `BACKUP_COMPLETE` is written last. It is removed before a copy starts, so
+   a half-written copy is never mistaken for a good one.
+5. Once a day the same thing goes to `backup/daily/`, which gives one day of
+   rollback if the live database is damaged.
+
+A run that is still going (for example on a hung shire) causes the next one
+to be skipped, and each run has a 45-minute timeout. Status is reported every
+5 minutes as `gadget_backup_*` metrics.
+
+To back up by hand:
+
+```bash
+podman exec gadget-monitor-backup /usr/local/bin/backup-once.sh
 ```
-SVC_USER=astro-svc
-SVC_UID=1725455
-SVC_GID=2121725455
-SVC_FQDN=myhost.astro.washington.edu
+
+## Seeding local state and restoring
+
+`init.sh` decides what to do based on `/local/gadget-monitor`:
+
+| Local state | Backup on shire | `init.sh` does |
+|---|---|---|
+| has `.seeded` | any | nothing (normal re-run) |
+| empty | `latest/BACKUP_COMPLETE` exists | restores it and writes `.seeded` |
+| empty | nothing at all | stops; re-run with `--fresh` for a first deployment |
+| empty | something, but `latest` incomplete | stops; try `--restore-from=daily` |
+| empty | shire unreachable | stops; never starts fresh by accident |
+| has data, no `.seeded` | any | stops; needs a person to look |
+
+`.seeded` is the safety catch. Without it, a new VM that came up empty would
+back up an empty database over the good history.
+
+**New VM, or the VM's disk was lost.** Clone the repo and run `init.sh`
+(it restores `latest` automatically), then `podman compose up -d --build`.
+At most about an hour of data is lost.
+
+**Damaged local database:**
+
+```bash
+podman compose down
+mv /local/gadget-monitor /local/gadget-monitor.broken
+sudo ./init.sh                       # or --restore-from=daily
+podman compose up -d
 ```
 
-`.env` is gitignored and must never be copied between hosts.
+## Verifying a deployment
 
-## VM infrastructure context
+1. `podman ps`: four containers `Up`. Run it again a minute later and check
+   the uptimes haven't reset.
+2. `podman logs gadget-monitor-collector`: `agent up` for both hosts, with
+   no repeated `connect failed`.
+3. Dashboard: data for both hosts, every check `OK`, both SSH sessions
+   `Connected`.
+4. On a target, `ps -u astro-gadget -f` should show exactly one
+   `python3 -I -u -c import sys;...` agent.
+5. **Last backup** shows under an hour after the first `:07`.
+6. Reboot the VM. Afterwards `podman ps` shows all four containers again,
+   because `podman-restart.service` is enabled by `init.sh`.
 
-DiRAC VMs run Rocky 9 and use podman (not Docker) as the container runtime.
-Key things to know:
+## Troubleshooting
 
-- **podman-compose** is the compose frontend. It reads the same `compose.yaml`
-  format as `docker compose`. Install it from EPEL; `init.sh` handles this.
-- **podman-restart.service** must be enabled for `restart: unless-stopped` to
-  survive a VM reboot. `init.sh` enables it.
-- **The VM's reverse proxy** handles TLS termination and firewall rules.
-  The container listens on `127.0.0.1:8080` and does not need to manage TLS or
-  open ports itself.
-- **SELinux** should be enforcing. `init.sh` sets it if it finds permissive
-  mode. If the service needs to write to host-mounted paths, add
-  `container_file_t` context via `semanage fcontext`.
-- **SSH** is hardened by `init.sh` (password auth disabled). Access is by key
-  only.
-- **Service accounts** exist because the NFS share uses `root_squash`. The
-  container process must run as the uid that owns the secrets on the share.
-  `init.sh` creates this account on the host so the ids are available for
-  `podman compose`.
+| Symptom | Look at |
+|---|---|
+| A host shows SSH `Down` | `podman logs gadget-monitor-collector`. "Host key verification failed" means the target's host key changed; update `config/known_hosts` once you're sure it's legitimate. "Permission denied" means the key or account on the target. Timeouts are network problems |
+| A check is `FAIL` | Open **Collector internals → Check outcome by reason**. `error`: run the check by hand (README.md). `timeout`: the check is too slow, or something it touches is hanging. `skipped_running`: a previous run is stuck and can't be killed, which almost always means hung NFS on the target |
+| Gaps without failures | The collector itself was down: `podman ps`, `podman logs` |
+| **Last backup** growing | `podman logs gadget-monitor-backup`. `REFUSED` explains itself; otherwise check that shire is mounted and writable by astro-gadget |
+| Can't log in as admin | The password is re-applied from shire on every Grafana start: `sudo -u astro-gadget cat /service/shire/gadget-monitor/secrets/grafana-admin-password` |
 
-## Rollout to another VM
+## VM infrastructure notes
 
-The procedure above is the whole deployment. On a new VM, confirm:
-
-- The VM has network access to pull container base images.
-- For production: if the service has secrets, `/service/shire` is mounted and
-  the secrets directory is populated (see `SECRETS.md`).
-
-## Boot persistence
-
-`restart: unless-stopped` only survives reboot if `podman-restart.service` is
-enabled, which `init.sh` does.
+- **SELinux** is currently permissive. Local mounts are labelled with `:z`,
+  so switching to enforcing should work for those. The shire mounts are NFS
+  and can't be relabelled: if enforcing, run `setsebool -P virt_use_nfs 1`.
+- **The service account** is in `/etc/passwd` on this VM, and is an LDAP
+  account with an NFS home on the targets. The persistent-session design
+  exists because of that NFS home (see PLAN.md).
+- **If shire hangs while containers are starting** (for example at boot),
+  the containers that mount it (grafana, collector, backup) can't start
+  until it recovers. Once running, only the backup container touches shire.

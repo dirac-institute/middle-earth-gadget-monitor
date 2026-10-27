@@ -8,8 +8,11 @@ ARG SVC_GID
 ARG SVC_USER
 
 # ssh refuses to run for a uid it cannot resolve, so the image needs the user.
-RUN groupadd -g ${SVC_GID} ${SVC_USER} && \
-    useradd -u ${SVC_UID} -g ${SVC_GID} -M -d /tmp -s /usr/sbin/nologin ${SVC_USER}
+# (The getent guards only matter for dev-startup.sh, where your own gid may
+# already exist in the base image.)
+RUN (getent group ${SVC_GID} >/dev/null || groupadd -g ${SVC_GID} ${SVC_USER}) && \
+    (getent passwd ${SVC_UID} >/dev/null || \
+     useradd -u ${SVC_UID} -g ${SVC_GID} -M -d /tmp -s /usr/sbin/nologin ${SVC_USER})
 
 COPY collector/collector.py /srv/collector/collector.py
 COPY agent/agent.py         /srv/agent/agent.py

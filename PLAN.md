@@ -6,6 +6,29 @@ database, and Grafana provides the graphs. Everything runs in containers on
 this VM, deployed the same way as the Middle-earth example this repo was
 built from: clone, `sudo ./init.sh`, `podman compose up -d --build`.
 
+## Status (2026-10-27)
+
+All six milestones are built and tested on this VM against arnor and gondor.
+Where the build differs from the original plan:
+
+- **Host config is `config/hosts.toml`**, not YAML. Python's standard
+  library reads TOML, so the collector has no third-party dependencies.
+- **The agent exits after 180 s with no input.** Failure testing showed that
+  after a network outage, sshd on the target never notices the client is
+  gone, so the old agent lingered.
+- **Checks due while a host is disconnected wait up to 60 s for a reconnect**
+  before being recorded as `unreachable`. Short outages therefore lose no
+  data.
+- **Grafana and the collector are custom images** with provisioning, checks
+  and config baked in, so a deploy is fully described by the repo.
+- **`podman compose up` needs `--force-recreate`** to pick up a rebuilt image
+  (see DEPLOY.md).
+- **`dev-startup.sh` has no fake target.** Without the key, hosts just show
+  as unreachable.
+- **The dashboard is generated** by `grafana/gen_hosts_overview.py`.
+- **The VM reboot test has not been run.** It would end the session doing
+  the build. `kill -9` of a container was verified to restart it.
+
 ## Requirements
 
 1. Run small check scripts on the targets over SSH, opening as few new SSH
@@ -36,10 +59,10 @@ built from: clone, `sudo ./init.sh`, `podman compose up -d --build`.
   targets. Its home directory is on NFS, and that can't be changed.
 - Key login works: `/service/shire/astro-gadget-ssh-key.key`, mode 0600,
   readable only by astro-gadget because of `root_squash`.
-- arnor and gondor present the **same ED25519 host key**
-  (`SHA256:zyhxBFDUoeL8wNyXdFmCtsAvRIbJQwSFEgj3YFEISBU`). It's pinned in the
-  repo's `known_hosts`. It's worth asking infrastructure whether that's
-  intentional.
+- arnor and gondor present the **same SSH host key** (the server's identity,
+  not the login key): ED25519
+  `SHA256:zyhxBFDUoeL8wNyXdFmCtsAvRIbJQwSFEgj3YFEISBU`. It's pinned in
+  `config/known_hosts` and has been raised with the sysadmin.
 - `/service/shire` is a `hard`-mounted NFSv4.2 export of a 1.4 PB shared
   pool. No quota is visible, so we enforce the 10 GB limit ourselves.
 - `/local` on this VM is a separate 16 GB XFS partition.
@@ -338,13 +361,13 @@ compose.yaml             victoriametrics, grafana, collector, backup
 collector/               Dockerfile, collector.py, requirements
 agent/agent.py           remote agent (stdlib, py3.9)
 checks/                  cpu.sh, load.sh, memory.sh
-config/hosts.yaml        arnor, gondor: hostname, user, enabled checks
+config/hosts.toml        arnor, gondor: hostname, user, enabled checks
 config/known_hosts       pinned target host keys
 backup/                  Dockerfile, backup.sh, restore.sh
 grafana/provisioning/    datasources/, dashboards/
 grafana/dashboards/      hosts-overview.json
 DEPLOY.md SECRETS.md README.md   rewritten for gadget-monitor
-dev-startup.sh           runs locally; a fake local target for the collector
+dev-startup.sh           runs locally with Docker, state in ./dev-data
 ```
 
 **Housekeeping** (done as part of the build):
@@ -352,7 +375,7 @@ dev-startup.sh           runs locally; a fake local target for the collector
 - Rename every "example" identifier to `gadget-monitor`.
 - Drop the stale SELinux claims from the docs, and the duplicate `start.sh`
   row in the DEPLOY.md table.
-- Label mounts with `:Z`. SELinux is permissive today but may be switched to
+- Label local mounts with `:z` (shared: the backup container mounts the same dirs). SELinux is permissive today but may be switched to
   enforcing.
 
 ## Milestones
@@ -387,6 +410,6 @@ dev-startup.sh           runs locally; a fake local target for the collector
   `secrets/` on shire and mounted read-only into the collector the same way
   as the SSH key.
 - Grafana alerting, if wanted later.
-- More hosts: add an entry to `config/hosts.yaml`.
+- More hosts: add an entry to `config/hosts.toml`.
 - Checks that need root: narrow sudo rules on the targets, decided case by
   case.
