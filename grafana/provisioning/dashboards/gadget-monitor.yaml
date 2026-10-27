@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: gadget-monitor
+    folder: gadget-monitor
+    type: file
+    disableDeletion: true
+    # Repo dashboards are read-only in the UI; use "Save as" to keep a
+    # personal copy (stored in grafana.db, which is backed up).
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards

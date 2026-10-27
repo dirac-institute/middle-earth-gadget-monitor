@@ -1,32 +1,101 @@
-# Middle-earth service example.
+# gadget-monitor: SSH-based monitoring for arnor and gondor.
 #
+#   sudo ./init.sh
 #   podman compose up -d --build
 #
-# Apache serves static files and proxies API requests to a Python backend,
-# all in one container on port 8080. The VM's reverse proxy handles TLS
-# termination and routes traffic here.
+# Four containers, all running as the service account from service.conf:
+#   victoriametrics  time-series database (data on local disk)
+#   grafana          dashboards, published on 127.0.0.1:8080
+#   collector        runs checks on the targets over persistent SSH sessions
+#   backup           hourly/daily backups of local state to /service/shire
 #
-# SVC_USER, SVC_UID, SVC_GID, and SVC_FQDN must be set in .env in production
-# (written by init.sh from service.conf). There are no defaults; missing
-# values will cause podman compose to fail.
+# Every variable below comes from .env, written by init.sh from service.conf
+# and the host. There are no defaults; missing values make compose fail.
+
+name: gadget-monitor
 
 services:
-  app:
+  victoriametrics:
+    image: docker.io/victoriametrics/victoria-metrics:v1.154.0
+    container_name: gadget-monitor-vm
+    user: "${SVC_UID}:${SVC_GID}"
+    command:
+      - -storageDataPath=/storage
+      - -httpListenAddr=:8428
+      - -retentionPeriod=100d
+      # Bound the number of distinct series so a misbehaving check cannot grow
+      # the database without limit (see PLAN.md, size budget).
+      - -storage.maxHourlySeries=20000
+      - -storage.maxDailySeries=50000
+      - -loggerLevel=WARN
+    volumes:
+      - "${GADGET_LOCAL_DIR}/vm:/storage:z"
+    restart: unless-stopped
+    labels:
+      idac.service: gadget-monitor
+
+  grafana:
+    build:
+      context: grafana
+    image: localhost/gadget-monitor/grafana:latest
+    container_name: gadget-monitor-grafana
+    user: "${SVC_UID}:${SVC_GID}"
+    environment:
+      GF_SERVER_HTTP_PORT: "3000"
+      GF_SERVER_DOMAIN: "${SVC_FQDN}"
+      GF_SERVER_ROOT_URL: "https://${SVC_FQDN}/"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/hosts-overview.json
+    volumes:
+      - "${GADGET_LOCAL_DIR}/grafana:/var/lib/grafana:z"
+      - "${GADGET_SHIRE_DIR}/secrets:/run/secrets/grafana:ro"
+    ports:
+      - "127.0.0.1:8080:3000"
+    restart: unless-stopped
+    labels:
+      idac.service: gadget-monitor
+
+  collector:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: collector/Dockerfile
       args:
         SVC_UID: "${SVC_UID}"
         SVC_GID: "${SVC_GID}"
         SVC_USER: "${SVC_USER}"
-    image: middle-earth-example/app:latest
-    container_name: example-app
-    hostname: "${SVC_FQDN}"
-    environment:
-      SERVER_NAME: "${SVC_FQDN}"
-    ports:
-      - "127.0.0.1:8080:8080"
-    restart: unless-stopped
+    image: localhost/gadget-monitor/collector:latest
+    container_name: gadget-monitor-collector
     user: "${SVC_UID}:${SVC_GID}"
+    environment:
+      GADGET_VM_URL: http://victoriametrics:8428
+    volumes:
+      # Read once at startup and copied to /dev/shm (tmpfs) so reconnects never
+      # touch the hard-mounted NFS share.
+      - "${GADGET_SSH_KEY}:/run/secrets/ssh-key:ro"
+    restart: unless-stopped
     labels:
-      idac.service: example-app
+      idac.service: gadget-monitor
+
+  backup:
+    build:
+      context: backup
+    image: localhost/gadget-monitor/backup:latest
+    container_name: gadget-monitor-backup
+    user: "${SVC_UID}:${SVC_GID}"
+    command: ["/usr/local/bin/backup-loop.sh"]
+    environment:
+      GADGET_VM_URL: http://victoriametrics:8428
+    volumes:
+      - "${GADGET_LOCAL_DIR}:/data:z"
+      - "${GADGET_SHIRE_DIR}/backup:/shire"
+    restart: unless-stopped
+    labels:
+      idac.service: gadget-monitor

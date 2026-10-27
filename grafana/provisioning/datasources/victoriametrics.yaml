@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: VictoriaMetrics
+    uid: victoriametrics
+    type: prometheus
+    access: proxy
+    url: http://victoriametrics:8428
+    isDefault: true
+    editable: false
+    jsonData:
+      # Checks run every 5 minutes; this makes $__rate_interval span at least
+      # two samples so rate() always has something to work with.
+      timeInterval: 5m
+      prometheusType: Prometheus
