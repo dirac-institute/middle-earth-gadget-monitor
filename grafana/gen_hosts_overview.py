@@ -117,11 +117,11 @@ panels.append(ts("Load per core", (16, y, 8, 9),
 y += 9
 
 panels.append(row("Memory and swap", y)); y += 1
-panels.append(ts("Memory", (0, y, 12, 9),
+panels.append(ts("Memory available", (0, y, 12, 9),
     [target(f'node_memory_MemAvailable_bytes{{{H}}}', "{{host}} available"),
-     target(f'node_memory_MemFree_bytes{{{H}}}', "{{host}} free", "B")],
-    "Available (solid) is what new work can use, including reclaimable cache. Free (dashed) is completely unused RAM, normally small.",
-    "bytes", host_overrides("free")))
+     target(f'node_memory_MemTotal_bytes{{{H}}}', "{{host}} total", "B")],
+    "Available (solid) is how much memory new work can still use, counting cache the kernel would give back. Total (dashed) is installed RAM.",
+    "bytes", host_overrides("total")))
 panels.append(ts("Swap free", (12, y, 8, 9),
     [target(f'node_memory_SwapFree_bytes{{{H}}}', "{{host}} free"),
      target(f'node_memory_SwapTotal_bytes{{{H}}}', "{{host}} total", "B")],

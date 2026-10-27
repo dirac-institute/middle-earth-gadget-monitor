@@ -345,7 +345,7 @@ from a corrupt local database: `podman compose down`, move
   `$host` and `$check` variables, showing:
   - CPU %
   - load 1m and 5m, plus load per core
-  - free and available memory
+  - available and total memory
   - free swap (showing "no swap" when there is none)
   - check health
   - backup age
