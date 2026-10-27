@@ -90,6 +90,7 @@ class Check:
     script: str
     interval: int
     timeout: int
+    hosts: tuple = ()  # from "# hosts: a b"; empty means every host
 
 
 def load_checks():
@@ -97,11 +98,13 @@ def load_checks():
     for path in sorted(CHECKS_DIR.glob("*.sh")):
         script = path.read_text()
         meta = dict(re.findall(r"^#\s*(interval|timeout):\s*(\d+)\s*$", script, re.M))
+        hosts = re.search(r"^#\s*hosts:\s*(.*?)\s*$", script, re.M)
         checks[path.stem] = Check(
             name=path.stem,
             script=script,
             interval=int(meta.get("interval", DEFAULT_INTERVAL_S)),
             timeout=int(meta.get("timeout", DEFAULT_TIMEOUT_S)),
+            hosts=tuple(hosts.group(1).split()) if hosts else (),
         )
     return checks
 
@@ -355,7 +358,8 @@ class Host:
         self.name = cfg["name"]
         self.address = cfg["address"]
         self.user = cfg.get("user", user)
-        wanted = cfg.get("checks", list(checks))
+        wanted = cfg.get("checks", [c.name for c in checks.values()
+                                    if not c.hosts or self.name in c.hosts])
         missing = set(wanted) - checks.keys()
         if missing:
             raise SystemExit(f"host {self.name}: unknown checks {sorted(missing)}")

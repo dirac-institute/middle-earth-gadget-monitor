@@ -16,6 +16,8 @@ STAGE_COLORS = {"connect": "#199e70", "auth": "#c98500", "shell": "#d55181"}
 OP_COLORS = {"READ": "#3987e5", "WRITE": "#d95926", "GETATTR": "#199e70", "LOOKUP": "#c98500",
              "ACCESS": "#d55181", "OPEN": "#008300", "CLOSE": "#9085e9", "OTHER": "#8f8e86"}
 NFS_FS = ("helios", "shire", "shiren")
+# GPUs (gondor only) take slots 3 and 7: never a host's color, and far apart.
+GPU_COLORS = {"gpu0": "#199e70", "gpu1": "#9085e9"}
 GOOD, WARN, CRIT = "#0ca30c", "#fab219", "#d03b3b"
 pid = 0
 
@@ -203,6 +205,35 @@ for i, fs in enumerate(NFS_FS):
          "tooltip": {"mode": "multi", "sort": "desc"}},
         extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2}))
 y += 27
+
+def gpu_overrides(dash_suffix=None):
+    o = [{"matcher": {"id": "byRegexp", "options": f"/^{g}/"},
+          "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
+         for g, c in GPU_COLORS.items()]
+    if dash_suffix:
+        o.append({"matcher": {"id": "byRegexp", "options": f"/{dash_suffix}$/"},
+                  "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 6]}}]})
+    return o
+
+panels.append(row("GPUs (gondor)", y)); y += 1
+panels.append(ts("GPU memory free", (0, y, 9, 9),
+    [target(f'gadget_gpu_memory_free_bytes{{{H}}}', "gpu{{gpu}} free"),
+     target(f'gadget_gpu_memory_total_bytes{{{H}}}', "gpu{{gpu}} total", "B")],
+    "Free GPU memory (solid) against each GPU's total (dashed), sampled every minute. "
+    "The driver keeps about 0.6 GB per GPU for itself, so free never quite reaches total.",
+    "bytes", gpu_overrides("total")))
+panels.append(ts("GPU utilization", (9, y, 9, 9),
+    [target(f'gadget_gpu_utilization_percent{{{H}}}', "gpu{{gpu}} average"),
+     target(f'gadget_gpu_utilization_max_percent{{{H}}}', "gpu{{gpu}} peak", "B")],
+    "Percent of time a GPU kernel was running, from the driver's samples over the ~14 s before "
+    "each once-a-minute check: average (solid) and peak (dashed). Covers about a quarter of the "
+    "time, so short bursts between checks can be missed.",
+    "percent", gpu_overrides("peak"), 0, 100))
+panels.append(ts("GPU processes", (18, y, 6, 9),
+    [target(f'gadget_gpu_processes{{{H}}}', "gpu{{gpu}}")],
+    "Number of processes holding each GPU (they may hold memory without computing).",
+    "short", gpu_overrides()))
+y += 9
 
 internals = [
     ts("Check duration", (0, y + 1, 12, 8),

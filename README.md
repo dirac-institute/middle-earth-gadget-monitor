@@ -50,12 +50,14 @@ whose password is on shire (see `SECRETS.md`).
 ## Adding a check
 
 A check is one file in `checks/`. It runs on every host in
-`config/hosts.toml` unless that host lists `checks` explicitly.
+`config/hosts.toml`, unless the check has a `# hosts:` line (then only on
+those hosts) or a host lists its `checks` explicitly.
 
 ```bash
 #!/bin/bash
 # interval: 300
 # timeout: 30
+# hosts: gondor          (optional; omit to run on every host)
 # One-line description of what this measures.
 awk '...' /proc/something
 ```
@@ -104,7 +106,15 @@ back into the generator.
 | `cpu` | `gadget_cpu_seconds_total{mode}` (all cores combined), `gadget_cpu_count` |
 | `load` | `node_load1`, `node_load5`, `node_load15` |
 | `memory` | `node_memory_{MemTotal,MemFree,MemAvailable,SwapTotal,SwapFree}_bytes` |
+| `gpu` (gondor only, every minute) | `gadget_gpu_memory_{total,free}_bytes{gpu}`, `gadget_gpu_utilization_percent{gpu}`, `gadget_gpu_utilization_max_percent{gpu}`, `gadget_gpu_processes{gpu}` |
 | `nfs` | `gadget_nfs_{ops,queue_seconds,rtt_seconds,execute_seconds}_total{fs,op}`, `gadget_nfs_volumes{fs}` |
+
+**`gpu`** makes one `nvidia-smi -q` call. GPU utilization is bursty and the
+driver keeps no cumulative busy counter, so the check reports the average and
+peak of the driver's own samples over the ~14 s before each run; running every
+minute covers about a quarter of the time. Memory-bandwidth utilization,
+power, temperature, throttling and ECC are available from the same call but
+deliberately not collected.
 
 **`nfs`** reads the kernel's NFS client counters from `/proc/self/mountstats`
 (cumulative since mount; reading them never touches the network). `fs` is

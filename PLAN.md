@@ -34,6 +34,8 @@ Where the build differs from the original plan:
   `/proc/self/mountstats` counters. An active round-trip probe (timed LOOKUP)
   was considered and deferred; if added, only on shire/shiren, which are not
   automounted.
+- **Added after the plan: GPU stats on gondor** (`checks/gpu.sh`, every
+  minute), and the `# hosts:` check header that limits a check to some hosts.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 

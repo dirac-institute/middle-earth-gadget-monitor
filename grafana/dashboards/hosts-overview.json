@@ -2311,19 +2311,342 @@
       "maxPerRow": 2
     },
     {
-      "id": 33,
+      "id": 28,
       "type": "row",
-      "title": "Collector internals",
-      "collapsed": true,
+      "title": "GPUs (gondor)",
+      "collapsed": false,
       "gridPos": {
         "x": 0,
         "y": 92,
         "w": 24,
         "h": 1
       },
+      "panels": []
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "GPU memory free",
+      "description": "Free GPU memory (solid) against each GPU's total (dashed), sampled every minute. The driver keeps about 0.6 GB per GPU for itself, so free never quite reaches total.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 93,
+        "w": 9,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_gpu_memory_free_bytes{host=~\"$host\"}",
+          "legendFormat": "gpu{{gpu}} free",
+          "refId": "A",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_gpu_memory_total_bytes{host=~\"$host\"}",
+          "legendFormat": "gpu{{gpu}} total",
+          "refId": "B",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 600000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gpu0/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gpu1/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/total$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "GPU utilization",
+      "description": "Percent of time a GPU kernel was running, from the driver's samples over the ~14 s before each once-a-minute check: average (solid) and peak (dashed). Covers about a quarter of the time, so short bursts between checks can be missed.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 9,
+        "y": 93,
+        "w": 9,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_gpu_utilization_percent{host=~\"$host\"}",
+          "legendFormat": "gpu{{gpu}} average",
+          "refId": "A",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_gpu_utilization_max_percent{host=~\"$host\"}",
+          "legendFormat": "gpu{{gpu}} peak",
+          "refId": "B",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 600000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gpu0/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gpu1/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/peak$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "GPU processes",
+      "description": "Number of processes holding each GPU (they may hold memory without computing).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 93,
+        "w": 6,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_gpu_processes{host=~\"$host\"}",
+          "legendFormat": "gpu{{gpu}}",
+          "refId": "A",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 600000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gpu0/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gpu1/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 37,
+      "type": "row",
+      "title": "Collector internals",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 102,
+        "w": 24,
+        "h": 1
+      },
       "panels": [
         {
-          "id": 28,
+          "id": 32,
           "type": "timeseries",
           "title": "Check duration",
           "description": "Wall time of each check on the target.",
@@ -2333,7 +2656,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 93,
+            "y": 103,
             "w": 12,
             "h": 8
           },
@@ -2407,7 +2730,7 @@
           }
         },
         {
-          "id": 29,
+          "id": 33,
           "type": "timeseries",
           "title": "Check outcome by reason",
           "description": "Number of checks per host in each non-OK state: error, timeout, skipped_running (previous run still stuck), unreachable (no session), lost (session died mid-check).",
@@ -2417,7 +2740,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 93,
+            "y": 103,
             "w": 12,
             "h": 8
           },
@@ -2491,7 +2814,7 @@
           }
         },
         {
-          "id": 30,
+          "id": 34,
           "type": "timeseries",
           "title": "Clock skew",
           "description": "Target clock minus collector clock, from ping round trips. Check timestamps use the target's clock.",
@@ -2501,7 +2824,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 101,
+            "y": 111,
             "w": 8,
             "h": 8
           },
@@ -2575,7 +2898,7 @@
           }
         },
         {
-          "id": 31,
+          "id": 35,
           "type": "timeseries",
           "title": "SSH reconnects",
           "description": "Session drops per hour. Should be 0 in normal operation.",
@@ -2585,7 +2908,7 @@
           },
           "gridPos": {
             "x": 8,
-            "y": 101,
+            "y": 111,
             "w": 8,
             "h": 8
           },
@@ -2659,7 +2982,7 @@
           }
         },
         {
-          "id": 32,
+          "id": 36,
           "type": "timeseries",
           "title": "Lines dropped",
           "description": "Malformed or excess (>500) output lines discarded by the collector. Empty is good.",
@@ -2669,7 +2992,7 @@
           },
           "gridPos": {
             "x": 16,
-            "y": 101,
+            "y": 111,
             "w": 8,
             "h": 8
           },
