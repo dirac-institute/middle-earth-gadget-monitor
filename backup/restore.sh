@@ -14,7 +14,7 @@ src="/shire/$kind"
 
 vmrestore -loggerLevel=WARN -src="fs://$src/vm" -storageDataPath=/data/vm
 if [ -f "$src/grafana.db" ]; then
-    cp "$src/grafana.db" /data/grafana/grafana.db
+    install -m 0640 "$src/grafana.db" /data/grafana/grafana.db
 fi
 echo "restored $kind backup of $(cat "$src/BACKUP_COMPLETE") at $(date -u +%FT%TZ)" > /data/.seeded
 cat /data/.seeded
