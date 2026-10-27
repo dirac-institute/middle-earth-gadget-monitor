@@ -101,6 +101,10 @@ main() {
 }
 
 if [ "${1:-}" != "--lib" ]; then
+    # The lock lives here, not in the loop, so a manual run
+    # (podman exec ... backup-once.sh) can never overlap a scheduled one.
+    exec 9>/tmp/backup.lock
+    flock -n 9 || { log "another backup is running; skipping"; exit 0; }
     main
     rc=$?
     report_status
