@@ -36,6 +36,12 @@ Where the build differs from the original plan:
   automounted.
 - **Added after the plan: GPU stats on gondor** (`checks/gpu.sh`, every
   minute), and the `# hosts:` check header that limits a check to some hosts.
+- **Added after the plan: per-user usage** (`checks/users.sh`,
+  `checks/users_gpu.sh`). It breaks the "no usernames as labels" rule on
+  purpose: the user population bounds the series count (about 1,000 over 100
+  days). Thresholds for "active" are applied at query time
+  (`grafana/user_usage.py`). Per-user tables are on an admin-only dashboard;
+  the public dashboard shows only daily and weekly counts.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 

@@ -21,6 +21,32 @@ if pw="$(timeout -k 5 20 cat "$PW_FILE" 2>/dev/null)" && [ -n "$pw" ]; then
 else
     echo "gadget: WARNING $PW_FILE unreadable; admin password left unchanged" >&2
 fi
+
+# Make the provisioned "Admin" folder (per-user usage) admin-only. File
+# provisioning can't set folder permissions, so once Grafana answers, remove
+# every role's grant on it (org admins always keep access), then confirm an
+# anonymous request is refused. The permissions persist in grafana.db; this
+# re-applies them on every start in case someone edited them in the UI.
+lock_admin_folder() {
+    local api=http://127.0.0.1:${GF_SERVER_HTTP_PORT:-3000}/api i code
+    for i in $(seq 60); do
+        sleep 5
+        curl -sf -o /dev/null -K - -X POST -H 'Content-Type: application/json' \
+            -d '{"items":[]}' "$api/folders/gadget-admin/permissions" \
+            <<<"user = \"$GF_SECURITY_ADMIN_USER:$pw\"" || continue
+        code=$(curl -s -o /dev/null -w '%{http_code}' "$api/dashboards/uid/gadget-users")
+        if [ "$code" = 200 ]; then
+            echo "gadget: WARNING Admin folder is still visible anonymously" >&2
+        else
+            echo "gadget: Admin folder restricted to admins (anonymous gets $code)"
+        fi
+        return
+    done
+    echo "gadget: WARNING could not restrict the Admin folder; per-user dashboard may be public" >&2
+}
+if [ -n "${pw:-}" ]; then
+    lock_admin_folder &
+fi
 unset pw
 
 exec /run.sh "$@"

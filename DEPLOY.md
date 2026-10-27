@@ -43,7 +43,7 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 | `checks/*.sh` | One check per file (see README.md, "Adding a check") |
 | `config/hosts.toml` | Hosts to monitor |
 | `config/known_hosts` | Pinned SSH host keys for the targets |
-| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password, dashboard generator |
+| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_users.py`, sharing `user_usage.py`) |
 | `backup/` | Backup image: `backup-loop.sh` (scheduler), `backup-once.sh`, `restore.sh`, vmbackup/vmrestore binaries |
 | `dev-startup.sh` | Local development with Docker |
 
@@ -155,7 +155,10 @@ podman compose up -d
 4. On a target, `ps -u astro-gadget -f` should show exactly one
    `python3 -I -u -c import sys;...` agent.
 5. **Last backup** shows under an hour after the first `:07`.
-6. Reboot the VM. Afterwards `podman ps` shows all four containers again,
+6. `podman logs gadget-monitor-grafana` says `Admin folder restricted to
+   admins (anonymous gets 403)`, and logged out, the dashboard list shows
+   only the gadget-monitor folder.
+7. Reboot the VM. Afterwards `podman ps` shows all four containers again,
    because `podman-restart.service` is enabled by `init.sh`.
 
 ## Troubleshooting
@@ -168,6 +171,7 @@ podman compose up -d
 | NFS queue wait high | **NFS queue wait by operation** shows which calls are waiting. High WRITE queue wait alone usually means a large write burst (the client is throttling itself); everything rising together points at the server or network. Check **Round-trip time** too. NFS graphs going blank while `nfs` stays OK means no calls finished on that filesystem: idle, or hung |
 | Gaps without failures | The collector itself was down: `podman ps`, `podman logs` |
 | **Last backup** growing | `podman logs gadget-monitor-backup`. `REFUSED` explains itself; otherwise check that shire is mounted and writable by astro-gadget |
+| Grafana log says the Admin folder could not be restricted | The per-user dashboard may be visible to anonymous viewers. Restart Grafana (`podman restart gadget-monitor-grafana`), or as admin open the Admin folder, Permissions, and remove the Viewer and Editor roles |
 | Can't log in as admin | The password is re-applied from shire on every Grafana start: `sudo -u astro-gadget cat /service/shire/gadget-monitor/secrets/grafana-admin-password` |
 
 ## VM infrastructure notes

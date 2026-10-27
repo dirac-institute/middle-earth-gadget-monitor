@@ -7,6 +7,7 @@ Host colors are fixed per host (categorical slots 1-2, dark theme) so a host
 keeps its color in every panel; dashed lines are the secondary cue.
 """
 import json, sys
+import user_usage
 
 DS = {"type": "prometheus", "uid": "victoriametrics"}
 HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926"}  # dataviz categorical slots 1-2 (dark)
@@ -18,6 +19,8 @@ OP_COLORS = {"READ": "#3987e5", "WRITE": "#d95926", "GETATTR": "#199e70", "LOOKU
 NFS_FS = ("helios", "shire", "shiren")
 # GPUs (gondor only) take slots 3 and 7: never a host's color, and far apart.
 GPU_COLORS = {"gpu0": "#199e70", "gpu1": "#9085e9"}
+# User counts: active is drawn over logged in (active users are a subset).
+USER_COLORS = {"Logged in": "#9085e9", "Active": "#199e70"}
 GOOD, WARN, CRIT = "#0ca30c", "#fab219", "#d03b3b"
 pid = 0
 
@@ -233,6 +236,28 @@ panels.append(ts("GPU processes", (18, y, 6, 9),
     [target(f'gadget_gpu_processes{{{H}}}', "gpu{{gpu}}")],
     "Number of processes holding each GPU (they may hold memory without computing).",
     "short", gpu_overrides()))
+y += 9
+
+panels.append(row("Users", y)); y += 1
+for i, (period, what) in enumerate((("1d", "day"), ("7d", "week"))):
+    panels.append(panel("timeseries", f"Users per {what}", (12 * i, y, 12, 9),
+        [target(user_usage.distinct_users(user_usage.logged_in(H), period), "Logged in", interval="1h"),
+         target(user_usage.distinct_users(user_usage.active(H), period), "Active", "B", interval="1h")],
+        f"Distinct users on the selected hosts in each {what} (Pacific time"
+        f"{', weeks start Monday' if period == '7d' else ''}; the last bar is the {what} so far). "
+        "Logged in: had at least one process running. Active: in at least one 5-minute interval, "
+        f"used {user_usage.CPU_CORES}+ CPU cores on average, or held 1+ GiB of RAM, or kept a GPU "
+        f"{user_usage.GPU_PERCENT}%+ busy, or held 5%+ of a GPU's memory. root, jhub-admin, "
+        "astro-gadget and system accounts are not counted.",
+        "short",
+        [{"matcher": {"id": "byName", "options": n},
+          "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
+         for n, c in USER_COLORS.items()],
+        {"drawStyle": "bars", "barAlignment": 1, "lineWidth": 1, "fillOpacity": 80,
+         "showPoints": "never", "axisSoftMin": 0},
+        {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
+         "tooltip": {"mode": "multi", "sort": "none"}},
+        extra={"timeFrom": "90d", "maxDataPoints": 3000}, decimals=0))
 y += 9
 
 internals = [

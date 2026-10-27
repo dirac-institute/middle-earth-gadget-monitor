@@ -2634,19 +2634,230 @@
       }
     },
     {
-      "id": 37,
+      "id": 32,
       "type": "row",
-      "title": "Collector internals",
-      "collapsed": true,
+      "title": "Users",
+      "collapsed": false,
       "gridPos": {
         "x": 0,
         "y": 102,
         "w": 24,
         "h": 1
       },
+      "panels": []
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "Users per day",
+      "description": "Distinct users on the selected hosts in each day (Pacific time; the last bar is the day so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 1+ GiB of RAM, or kept a GPU 5%+ busy, or held 5%+ of a GPU's memory. root, jhub-admin, astro-gadget and system accounts are not counted.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 103,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "count(max by (user) (max_over_time(((max by (host, user) (max_over_time(gadget_user_processes{host=~\"$host\"}[5m])) > 0))[1d:5m] offset -1d))) and on() (hour(time() + timezone_offset(\"America/Los_Angeles\")) == 0)",
+          "legendFormat": "Logged in",
+          "refId": "A",
+          "range": true,
+          "interval": "1h"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "count(max by (user) (max_over_time(((max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958))[1d:5m] offset -1d))) and on() (hour(time() + timezone_offset(\"America/Los_Angeles\")) == 0)",
+          "legendFormat": "Active",
+          "refId": "B",
+          "range": true,
+          "interval": "1h"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "barAlignment": 1,
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Logged in"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "timeFrom": "90d",
+      "maxDataPoints": 3000
+    },
+    {
+      "id": 34,
+      "type": "timeseries",
+      "title": "Users per week",
+      "description": "Distinct users on the selected hosts in each week (Pacific time, weeks start Monday; the last bar is the week so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 1+ GiB of RAM, or kept a GPU 5%+ busy, or held 5%+ of a GPU's memory. root, jhub-admin, astro-gadget and system accounts are not counted.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 103,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "count(max by (user) (max_over_time(((max by (host, user) (max_over_time(gadget_user_processes{host=~\"$host\"}[5m])) > 0))[7d:5m] offset -7d))) and on() (hour(time() + timezone_offset(\"America/Los_Angeles\")) == 0 and on() day_of_week(time() + timezone_offset(\"America/Los_Angeles\")) == 1)",
+          "legendFormat": "Logged in",
+          "refId": "A",
+          "range": true,
+          "interval": "1h"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "count(max by (user) (max_over_time(((max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958))[7d:5m] offset -7d))) and on() (hour(time() + timezone_offset(\"America/Los_Angeles\")) == 0 and on() day_of_week(time() + timezone_offset(\"America/Los_Angeles\")) == 1)",
+          "legendFormat": "Active",
+          "refId": "B",
+          "range": true,
+          "interval": "1h"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "barAlignment": 1,
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Logged in"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "timeFrom": "90d",
+      "maxDataPoints": 3000
+    },
+    {
+      "id": 40,
+      "type": "row",
+      "title": "Collector internals",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 112,
+        "w": 24,
+        "h": 1
+      },
       "panels": [
         {
-          "id": 32,
+          "id": 35,
           "type": "timeseries",
           "title": "Check duration",
           "description": "Wall time of each check on the target.",
@@ -2656,7 +2867,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 103,
+            "y": 113,
             "w": 12,
             "h": 8
           },
@@ -2730,7 +2941,7 @@
           }
         },
         {
-          "id": 33,
+          "id": 36,
           "type": "timeseries",
           "title": "Check outcome by reason",
           "description": "Number of checks per host in each non-OK state: error, timeout, skipped_running (previous run still stuck), unreachable (no session), lost (session died mid-check).",
@@ -2740,7 +2951,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 103,
+            "y": 113,
             "w": 12,
             "h": 8
           },
@@ -2814,7 +3025,7 @@
           }
         },
         {
-          "id": 34,
+          "id": 37,
           "type": "timeseries",
           "title": "Clock skew",
           "description": "Target clock minus collector clock, from ping round trips. Check timestamps use the target's clock.",
@@ -2824,7 +3035,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 111,
+            "y": 121,
             "w": 8,
             "h": 8
           },
@@ -2898,7 +3109,7 @@
           }
         },
         {
-          "id": 35,
+          "id": 38,
           "type": "timeseries",
           "title": "SSH reconnects",
           "description": "Session drops per hour. Should be 0 in normal operation.",
@@ -2908,7 +3119,7 @@
           },
           "gridPos": {
             "x": 8,
-            "y": 111,
+            "y": 121,
             "w": 8,
             "h": 8
           },
@@ -2982,7 +3193,7 @@
           }
         },
         {
-          "id": 36,
+          "id": 39,
           "type": "timeseries",
           "title": "Lines dropped",
           "description": "Malformed or excess (>500) output lines discarded by the collector. Empty is good.",
@@ -2992,7 +3203,7 @@
           },
           "gridPos": {
             "x": 16,
-            "y": 111,
+            "y": 121,
             "w": 8,
             "h": 8
           },

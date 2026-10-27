@@ -69,10 +69,11 @@ Rules:
    print timestamps; the agent records when the check started.
 2. **Don't set `host` or `check` labels.** The collector adds them, and drops
    lines that try.
-3. **Never use unbounded values as labels**: no PIDs, job or session IDs, or
-   usernames that come and go. Every distinct label combination is a new
-   series stored for 100 days, and series count is the main threat to the
-   size budget. More than 500 lines per run are dropped.
+3. **Never use unbounded values as labels**: no PIDs, job or session IDs.
+   Every distinct label combination is a new series stored for 100 days, and
+   series count is the main threat to the size budget. More than 500 lines
+   per run are dropped. The one deliberate exception is `user` in the `users`
+   checks: it is bounded by the hosts' accounts (~800), not by time.
 4. **Be cheap and safe on a struggling host.** Prefer reading `/proc` and
    `/sys` to running tools. Don't touch NFS unless that is what the check is
    testing, and then give it a short timeout. Checks run unprivileged as
@@ -108,6 +109,8 @@ back into the generator.
 | `memory` | `node_memory_{MemTotal,MemFree,MemAvailable,SwapTotal,SwapFree}_bytes` |
 | `gpu` (gondor only, every minute) | `gadget_gpu_memory_{total,free}_bytes{gpu}`, `gadget_gpu_utilization_percent{gpu}`, `gadget_gpu_utilization_max_percent{gpu}`, `gadget_gpu_processes{gpu}` |
 | `nfs` | `gadget_nfs_{ops,queue_seconds,rtt_seconds,execute_seconds}_total{fs,op}`, `gadget_nfs_volumes{fs}` |
+| `users` | `gadget_user_cpu_seconds_total{user}`, `gadget_user_memory_bytes{user}`, `gadget_user_processes{user}` |
+| `users_gpu` (gondor only, every minute) | `gadget_user_gpu_memory_bytes{user}`, `gadget_user_gpu_percent{user}` |
 
 **`gpu`** makes one `nvidia-smi -q` call. GPU utilization is bursty and the
 driver keeps no cumulative busy counter, so the check reports the average and
@@ -131,6 +134,31 @@ OPEN_NOATTR), CLOSE or OTHER. Times:
 Average per call over an interval is `rate(..._seconds_total) / rate(gadget_nfs_ops_total)`.
 A call is only counted when it finishes, so a hung server shows as a gap in
 these graphs rather than a spike.
+
+**`users`** reads systemd's per-user cgroups
+(`/sys/fs/cgroup/user.slice/user-<uid>.slice`), which hold every login and
+every JupyterHub server. CPU is the cgroup's own counter, so it includes
+processes that exited between samples; it restarts from zero when a user's
+last process ends. Memory is anonymous memory plus swap (not file cache).
+Processes excludes the lingering systemd user manager. **`users_gpu`** sums
+each user's processes from `nvidia-smi --query-compute-apps` (memory) and one
+`nvidia-smi pmon` sample (busy %; a user busy on both GPUs can reach 200).
+Both skip root, jhub-admin, astro-gadget and uids below 1000.
+
+What counts as "logged in" and "active" is defined once, in
+`grafana/user_usage.py`, and applied at query time:
+- **Logged in** in a 5-minute interval: at least one process.
+- **Active** in an interval: 2+ CPU cores on average, 1+ GiB RAM held, a GPU
+  5%+ busy, or 5%+ of one GPU's memory held.
+- A user counts for a day or week (Pacific, weeks start Monday) if any
+  interval in it qualifies.
+
+The **Users** row on Hosts overview shows the daily and weekly counts. The
+**Users (admin)** dashboard has per-user usage over any time range, counting
+only active intervals. It lives in the **Admin** folder, which the Grafana
+entrypoint restricts to admins on every start. The raw per-user series are
+still queryable by anyone who can reach Grafana's query API; that was judged
+acceptable, but no per-user ranking is shown publicly.
 
 **Login probe** (built into the collector, not a file in `checks/`): every
 5 minutes, and every 15 after repeated timeouts, the collector opens a

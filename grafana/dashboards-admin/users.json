@@ -1,0 +1,318 @@
+{
+  "uid": "gadget-users",
+  "title": "Users (admin)",
+  "description": "Per-user CPU, memory and GPU usage. Admin only.",
+  "tags": [
+    "gadget-monitor"
+  ],
+  "schemaVersion": 41,
+  "editable": false,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "query": {
+          "query": "label_values(gadget_ssh_connected, host)",
+          "refId": "host"
+        },
+        "definition": "label_values(gadget_ssh_connected, host)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Usage by user, over the selected time range",
+      "description": "Counts only active 5-minute intervals (see the note below). Summed over the selected hosts; peaks are the largest single sample. Click a column to sort.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 18
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (user) (count_over_time(((max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958))[$__range:5m])) * 300",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": "Active time"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (user) (sum_over_time(((max by (host, user) (increase(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958)))[$__range:5m])) / 3600",
+          "refId": "B",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": "CPU core-hours"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (user) (sum_over_time(((max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958)))[$__range:5m])) * 300 / 3600 / 2^30",
+          "refId": "C",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": "Memory GiB-hours"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max by (user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[$__range]))",
+          "refId": "D",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": "Peak memory"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (user) (sum_over_time(((max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958)))[$__range:5m])) / 100 * 300 / 3600",
+          "refId": "E",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": "GPU-hours"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (user) (sum_over_time(((max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958)))[$__range:5m])) * 300 / 3600 / 2^30",
+          "refId": "F",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": "GPU memory GiB-hours"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max by (user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[$__range]))",
+          "refId": "G",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": "Peak GPU memory"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "user": "User",
+              "Value #A": "Active time",
+              "Value #B": "CPU core-hours",
+              "Value #C": "Memory GiB-hours",
+              "Value #D": "Peak memory",
+              "Value #E": "GPU-hours",
+              "Value #F": "GPU memory GiB-hours",
+              "Value #G": "Peak GPU memory"
+            },
+            "indexByName": {
+              "user": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4,
+              "Value #E": 5,
+              "Value #F": 6,
+              "Value #G": 7
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU core-hours"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: core\u00b7h"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory GiB-hours"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: GiB\u00b7h"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Peak memory"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GPU-hours"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: GPU\u00b7h"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GPU memory GiB-hours"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: GiB\u00b7h"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Peak GPU memory"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "CPU core-hours",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": true,
+          "reducer": [
+            "sum"
+          ],
+          "fields": [
+            "Active time",
+            "CPU core-hours",
+            "Memory GiB-hours",
+            "GPU-hours",
+            "GPU memory GiB-hours"
+          ]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "text",
+      "title": "How this is counted",
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 7
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Each user is judged per host per 5-minute interval. An interval is **active** if the user, on average,\nused **2+ CPU cores**, or held **1+ GiB of RAM** (anonymous memory plus swap, not file cache),\nor kept a GPU **5%+ busy**, or held **5%+ of one GPU's memory** (about 2.2 GiB).\nEvery column except the peaks sums active intervals only, so idle sessions add nothing.\n\n- **CPU core-hours**: CPU time used (1 core for 1 hour = 1).\n- **Memory / GPU memory GiB-hours**: memory held \u00d7 time held.\n- **GPU-hours**: GPU busy share \u00d7 time (one GPU fully busy for an hour = 1). Sampled once a minute.\n\nroot, jhub-admin, astro-gadget and system accounts are never collected. Thresholds live in\n`grafana/user_usage.py`; history is reinterpreted when they change."
+      }
+    }
+  ]
+}

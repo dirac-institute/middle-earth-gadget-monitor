@@ -3,3 +3,5 @@ secrets/
 .env
 # Local state for dev-startup.sh.
 dev-data/
+# Python bytecode from importing grafana/user_usage.py.
+__pycache__/

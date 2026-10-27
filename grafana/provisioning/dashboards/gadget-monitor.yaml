@@ -10,3 +10,13 @@ providers:
     allowUiUpdates: false
     options:
       path: /etc/grafana/dashboards
+  # Per-user dashboards. The entrypoint removes every role's access to this
+  # folder (by uid), leaving it to admins; anonymous viewers never see it.
+  - name: gadget-monitor-admin
+    folder: Admin
+    folderUid: gadget-admin
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards-admin
