@@ -148,8 +148,8 @@ Both skip root, jhub-admin, astro-gadget and uids below 1000.
 What counts as "logged in" and "active" is defined once, in
 `grafana/user_usage.py`, and applied at query time:
 - **Logged in** in a 5-minute interval: at least one process.
-- **Active** in an interval: 2+ CPU cores on average, 1+ GiB RAM held, a GPU
-  5%+ busy, or 5%+ of one GPU's memory held.
+- **Active** in an interval: 2+ CPU cores on average, 5+ GiB RAM held, a GPU
+  5%+ busy, or 1+ GiB of GPU memory held.
 - A user counts for a day or week (Pacific, weeks start Monday) if any
   interval in it qualifies.
 

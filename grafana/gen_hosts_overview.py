@@ -246,8 +246,9 @@ for i, (period, what) in enumerate((("1d", "day"), ("7d", "week"))):
         f"Distinct users on the selected hosts in each {what} (Pacific time"
         f"{', weeks start Monday' if period == '7d' else ''}; the last bar is the {what} so far). "
         "Logged in: had at least one process running. Active: in at least one 5-minute interval, "
-        f"used {user_usage.CPU_CORES}+ CPU cores on average, or held 1+ GiB of RAM, or kept a GPU "
-        f"{user_usage.GPU_PERCENT}%+ busy, or held 5%+ of a GPU's memory. root, jhub-admin, "
+        f"used {user_usage.CPU_CORES}+ CPU cores on average, or held {user_usage.MEM_BYTES / 2**30:g}+ GiB "
+        f"of RAM, or kept a GPU {user_usage.GPU_PERCENT}%+ busy, or held "
+        f"{user_usage.GPU_MEM_BYTES / 2**30:g}+ GiB of GPU memory. root, jhub-admin, "
         "astro-gadget and system accounts are not counted.",
         "short",
         [{"matcher": {"id": "byName", "options": n},

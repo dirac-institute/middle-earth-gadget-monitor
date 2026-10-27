@@ -67,7 +67,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (user) (count_over_time(((max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958))[$__range:5m])) * 300",
+          "expr": "sum by (user) (count_over_time(((max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 5368709120 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824))[$__range:5m])) * 300",
           "refId": "A",
           "instant": true,
           "range": false,
@@ -79,7 +79,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (user) (sum_over_time(((max by (host, user) (increase(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958)))[$__range:5m])) / 3600",
+          "expr": "sum by (user) (sum_over_time(((max by (host, user) (increase(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 5368709120 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824)))[$__range:5m])) / 3600",
           "refId": "B",
           "instant": true,
           "range": false,
@@ -91,7 +91,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (user) (sum_over_time(((max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958)))[$__range:5m])) * 300 / 3600 / 2^30",
+          "expr": "sum by (user) (sum_over_time(((max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 5368709120 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824)))[$__range:5m])) * 300 / 3600 / 2^30",
           "refId": "C",
           "instant": true,
           "range": false,
@@ -115,7 +115,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (user) (sum_over_time(((max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958)))[$__range:5m])) / 100 * 300 / 3600",
+          "expr": "sum by (user) (sum_over_time(((max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 5368709120 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824)))[$__range:5m])) / 100 * 300 / 3600",
           "refId": "E",
           "instant": true,
           "range": false,
@@ -127,7 +127,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (user) (sum_over_time(((max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958)))[$__range:5m])) * 300 / 3600 / 2^30",
+          "expr": "sum by (user) (sum_over_time(((max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) and on (host, user) (max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 5368709120 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824)))[$__range:5m])) * 300 / 3600 / 2^30",
           "refId": "F",
           "instant": true,
           "range": false,
@@ -311,7 +311,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Each user is judged per host per 5-minute interval. An interval is **active** if the user, on average,\nused **2+ CPU cores**, or held **1+ GiB of RAM** (anonymous memory plus swap, not file cache),\nor kept a GPU **5%+ busy**, or held **5%+ of one GPU's memory** (about 2.2 GiB).\nEvery column except the peaks sums active intervals only, so idle sessions add nothing.\n\n- **CPU core-hours**: CPU time used (1 core for 1 hour = 1).\n- **Memory / GPU memory GiB-hours**: memory held \u00d7 time held.\n- **GPU-hours**: GPU busy share \u00d7 time (one GPU fully busy for an hour = 1). Sampled once a minute.\n\nroot, jhub-admin, astro-gadget and system accounts are never collected. Thresholds live in\n`grafana/user_usage.py`; history is reinterpreted when they change."
+        "content": "Each user is judged per host per 5-minute interval. An interval is **active** if the user, on average,\nused **2+ CPU cores**, or held **5+ GiB of RAM** (anonymous memory plus swap,\nnot file cache), or kept a GPU **5%+ busy**, or held **1+ GiB of GPU memory**.\nEvery column except the peaks sums active intervals only, so idle sessions add nothing.\n\n- **CPU core-hours**: CPU time used (1 core for 1 hour = 1).\n- **Memory / GPU memory GiB-hours**: memory held \u00d7 time held.\n- **GPU-hours**: GPU busy share \u00d7 time (one GPU fully busy for an hour = 1). Sampled once a minute.\n\nroot, jhub-admin, astro-gadget and system accounts are never collected. Thresholds live in\n`grafana/user_usage.py`; history is reinterpreted when they change."
       }
     }
   ]

@@ -2650,7 +2650,7 @@
       "id": 33,
       "type": "timeseries",
       "title": "Users per day",
-      "description": "Distinct users on the selected hosts in each day (Pacific time; the last bar is the day so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 1+ GiB of RAM, or kept a GPU 5%+ busy, or held 5%+ of a GPU's memory. root, jhub-admin, astro-gadget and system accounts are not counted.",
+      "description": "Distinct users on the selected hosts in each day (Pacific time; the last bar is the day so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, astro-gadget and system accounts are not counted.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -2678,7 +2678,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "count(max by (user) (max_over_time(((max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958))[1d:5m] offset -1d))) and on() (hour(time() + timezone_offset(\"America/Los_Angeles\")) == 0)",
+          "expr": "count(max by (user) (max_over_time(((max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 5368709120 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824))[1d:5m] offset -1d))) and on() (hour(time() + timezone_offset(\"America/Los_Angeles\")) == 0)",
           "legendFormat": "Active",
           "refId": "B",
           "range": true,
@@ -2749,7 +2749,7 @@
       "id": 34,
       "type": "timeseries",
       "title": "Users per week",
-      "description": "Distinct users on the selected hosts in each week (Pacific time, weeks start Monday; the last bar is the week so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 1+ GiB of RAM, or kept a GPU 5%+ busy, or held 5%+ of a GPU's memory. root, jhub-admin, astro-gadget and system accounts are not counted.",
+      "description": "Distinct users on the selected hosts in each week (Pacific time, weeks start Monday; the last bar is the week so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, astro-gadget and system accounts are not counted.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -2777,7 +2777,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "count(max by (user) (max_over_time(((max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 2415289958))[7d:5m] offset -7d))) and on() (hour(time() + timezone_offset(\"America/Los_Angeles\")) == 0 and on() day_of_week(time() + timezone_offset(\"America/Los_Angeles\")) == 1)",
+          "expr": "count(max by (user) (max_over_time(((max by (host, user) (rate(gadget_user_cpu_seconds_total{host=~\"$host\"}[5m])) >= 2 or max by (host, user) (max_over_time(gadget_user_memory_bytes{host=~\"$host\"}[5m])) >= 5368709120 or max by (host, user) (avg_over_time(gadget_user_gpu_percent{host=~\"$host\"}[5m])) >= 5 or max by (host, user) (max_over_time(gadget_user_gpu_memory_bytes{host=~\"$host\"}[5m])) >= 1073741824))[7d:5m] offset -7d))) and on() (hour(time() + timezone_offset(\"America/Los_Angeles\")) == 0 and on() day_of_week(time() + timezone_offset(\"America/Los_Angeles\")) == 1)",
           "legendFormat": "Active",
           "refId": "B",
           "range": true,

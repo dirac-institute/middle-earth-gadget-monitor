@@ -17,9 +17,9 @@ weeks start Monday.
 """
 
 CPU_CORES = 2
-MEM_BYTES = 2**30                      # 1 GiB
+MEM_BYTES = 5 * 2**30                  # 5 GiB
 GPU_PERCENT = 5
-GPU_MEM_BYTES = 0.05 * 48305799168     # 5% of one of gondor's L40s
+GPU_MEM_BYTES = 2**30                  # 1 GiB
 STEP = "5m"
 TZ = "America/Los_Angeles"
 

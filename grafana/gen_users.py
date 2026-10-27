@@ -48,8 +48,8 @@ note = {
     "gridPos": {"x": 0, "y": 18, "w": 24, "h": 7},
     "options": {"mode": "markdown", "content": f"""\
 Each user is judged per host per 5-minute interval. An interval is **active** if the user, on average,
-used **{U.CPU_CORES}+ CPU cores**, or held **1+ GiB of RAM** (anonymous memory plus swap, not file cache),
-or kept a GPU **{U.GPU_PERCENT}%+ busy**, or held **5%+ of one GPU's memory** (about 2.2 GiB).
+used **{U.CPU_CORES}+ CPU cores**, or held **{U.MEM_BYTES / 2**30:g}+ GiB of RAM** (anonymous memory plus swap,
+not file cache), or kept a GPU **{U.GPU_PERCENT}%+ busy**, or held **{U.GPU_MEM_BYTES / 2**30:g}+ GiB of GPU memory**.
 Every column except the peaks sums active intervals only, so idle sessions add nothing.
 
 - **CPU core-hours**: CPU time used (1 core for 1 hour = 1).
