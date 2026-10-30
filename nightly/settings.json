@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr close:*)",
+      "Bash(gh issue close:*)",
+      "Bash(gh issue delete:*)",
+      "Bash(gh repo delete:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(gh ruleset:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git -C /root/middle-earth-gadget-monitor:*)",
+      "Edit(//root/middle-earth-gadget-monitor/**)",
+      "Write(//root/middle-earth-gadget-monitor/**)"
+    ]
+  }
+}

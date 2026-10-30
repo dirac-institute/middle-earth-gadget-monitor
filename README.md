@@ -21,6 +21,8 @@ whose password is on shire (see `SECRETS.md`).
 | `DEPLOY.md` | Deploying, updating, backups and restore, verifying, troubleshooting |
 | `SECRETS.md` | The SSH key and Grafana password on `/service/shire`, and who can read them |
 | `PLAN.md` | Design: why the pieces are shaped the way they are, and the size budget |
+| `CLAUDE.md` | Notes for coding agents: testing against the live stack, what never to deploy live, GitHub rules |
+| `nightly/` | Nightly agent that works one issue into a PR (`run.sh`, its prompt, settings and crontab line) |
 
 ## How it works
 
