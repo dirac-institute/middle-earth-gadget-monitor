@@ -16,12 +16,33 @@ minutes), so you are free to deploy your branch from this clone to test it. Stil
 (`cd /root/middle-earth-gadget-monitor && podman compose up -d --build --force-recreate`)
 and check the containers come back up.
 
-## 1. Choose one piece of work
+## Marking what you write
+
+You and the maintainer post as the same GitHub account, so the only way to
+tell your words from theirs is a marker. Start every comment you post, and
+every PR description you write, with this line:
+
+    🤖 **Nightly agent**
+
+Anything on GitHub without that line was written by the maintainer. (Before
+this rule, some of your comments went unmarked; if an unmarked comment is
+clearly a report you wrote, judge it by its content.)
+
+## 1. Choose the work
 
 1. **Feedback on your own PRs comes first.** List open PRs whose branch starts
-   with `nightly/`. If one has review comments or change requests from the
-   maintainer that are newer than your last commit or reply, address them on
-   that branch (step 3 onward, pushing to the same PR) and stop there.
+   with `nightly/`. For each, collect the maintainer's feedback from all three
+   places it can be:
+   - conversation comments: `gh api repos/{owner}/{repo}/issues/N/comments`
+   - reviews: `gh api repos/{owner}/{repo}/pulls/N/reviews`
+   - inline code comments: `gh api repos/{owner}/{repo}/pulls/N/comments`
+
+   Feedback is anything unmarked that is newer than your last commit on the
+   branch and your last marked comment on the PR. Address it on that branch
+   (step 3 onward, pushing to the same PR), then reply on the PR with a marked
+   comment saying what you changed, or why you didn't. Do this for every PR
+   that has feedback, oldest PR first. If there was any feedback tonight,
+   stop after handling it; don't start a new issue.
 2. **Otherwise pick one open issue.** `gh issue list --state open`, then read
    each candidate in full with its comments (`gh issue view N --comments`).
    Skip an issue if:
@@ -33,9 +54,9 @@ and check the containers come back up.
      or decisions you don't have).
    Among the rest, prefer the one where you can make the most real progress.
    Partial progress is fine: do the part you can and say what is left.
-3. If an issue is unclear in a way that blocks you, comment on it with specific
-   questions (once; don't repeat an unanswered question) and move to the next
-   candidate.
+3. If an issue is unclear in a way that blocks you, comment on it (marked)
+   with specific questions (once; don't repeat an unanswered question) and
+   move to the next candidate.
 4. If nothing is actionable, make no changes and say why in your summary.
 
 ## 2. Plan
@@ -59,13 +80,13 @@ writing code.
 ## 4. Open the PR
 
 - Push the branch to `origin` and open a PR with `gh pr create`. Title: what it
-  does. Body:
+  does. Body (starting with the marker line):
   - what changed and why;
   - **How it was tested**: commands run and what you saw, and anything not
     tested live;
   - what's left, if the issue isn't fully done;
   - `Closes #N` if it fully resolves the issue, otherwise `Part of #N`.
-- Comment on the issue with a one-line pointer to the PR.
+- Comment on the issue (marked) with a one-line pointer to the PR.
 - Don't merge the PR, and don't close the issue.
 
 ## 5. Finish
