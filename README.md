@@ -45,7 +45,7 @@ whose password is on shire (see `SECRETS.md`).
   (`/local/gadget-monitor`) for 100 days.
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
-- **Grafana** has a provisioned "Hosts overview" dashboard.
+- **Grafana** has provisioned "Hosts overview" and "Websites" dashboards.
 
 ## Adding a check
 
@@ -169,6 +169,31 @@ how long the login takes to become usable. The results are
 home directory), `shell` (session, login shell and profile until the command
 runs) and `total`. A login that hangs records only the stages it finished,
 and shows as `check="ssh_login"` timing out after 60 s.
+
+## Websites
+
+The collector also fetches each URL in `config/websites.toml` from this VM
+(not from arnor or gondor) every minute. To watch another site, add its URL
+to that list and rebuild the collector (see "Updating" in `DEPLOY.md`); the
+**Websites** dashboard picks it up with no change. The `site` label is the
+URL without `https://` and the trailing slash.
+
+A probe is a plain `GET` that follows up to 5 redirects and verifies the
+certificate. It counts as up only if the final answer is 200 OK and the whole
+page arrives within 15 s. For each site:
+
+| Metric | Meaning |
+|---|---|
+| `gadget_website_up{site}` | 1 if up |
+| `gadget_website_status{site,status}` | 1 for this probe's outcome: ok, http_error (not 200, or too many redirects), timeout, dns_error, connect_error, tls_error (including a certificate that doesn't verify) or error (broken response) |
+| `gadget_website_http_status{site}` | Final HTTP status code; 0 if there was no response |
+| `gadget_website_seconds{site,stage}` | Time per stage, summed over redirects: `dns`, `connect`, `tls`, `response` (request sent until headers), `body`, and `total` (also recorded, up to the failure, when a probe fails) |
+| `gadget_website_cert_expiry_timestamp_seconds{site}` | When the certificate served expires |
+
+Each site is about 16 series, sampled every minute: roughly 2.3 million
+samples (a few MB) per site over 100 days.
+
+## Collector metrics
 
 The collector also records, for every host and check (including `ssh_login`):
 - `gadget_check_success`;

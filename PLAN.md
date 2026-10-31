@@ -42,6 +42,13 @@ Where the build differs from the original plan:
   days). Thresholds for "active" are applied at query time
   (`grafana/user_usage.py`). Per-user tables are on an admin-only dashboard;
   the public dashboard shows only daily and weekly counts.
+- **Added after the plan: website probes** (#3). The collector fetches each
+  URL in `config/websites.toml` from the VM every minute and records up/down,
+  the reason for a failure, time per stage and certificate expiry, on a
+  separate **Websites** dashboard. Websites are probed from the VM, not the
+  targets: they aren't served from arnor or gondor, and the VM needs no SSH
+  session to reach them. The VM is on the UW network, so this doesn't prove a
+  site is reachable from off campus.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 
