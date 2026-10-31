@@ -15,8 +15,10 @@ many are non-null, and min/max/last. "NO DATA" is what a viewer would see as
 rows are included.
 
 Template variables are resolved as the dashboard would by default (All, for
-multi-value variables), unless set with --var. Only label_values(metric,
-label) queries are supported, which is all these dashboards use.
+multi-value variables), unless set with --var, and written into queries as
+Grafana writes them (allValue for All, regex-escaped values). Only
+label_values(metric, label) queries are supported, which is all these
+dashboards use.
 
 Stdlib only; talks to Grafana on 127.0.0.1:8080 as the anonymous viewer, or
 with --admin as admin (password read from shire with sudo -u astro-gadget),

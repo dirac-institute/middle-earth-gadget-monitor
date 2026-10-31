@@ -124,7 +124,11 @@ Hosts overview (gadget-hosts-overview), now-1h to now; host=gondor
 
 The title filter is a case-insensitive substring; leave it out for every
 panel. Template variables default to the dashboard's (All); repeated panels
-are listed once per value; collapsed rows are included. `NO DATA` is what a
+are listed once per value; collapsed rows are included. Variables are written
+into queries the way Grafana writes them (All as the variable's `allValue`,
+values of a multi-value variable regex-escaped, even a single one) and the
+panel's minimum interval is applied, so a query that comes up empty in
+Grafana comes up empty here too. `NO DATA` is what a
 viewer sees as "No data", and query errors print as `ERROR`. Stat and table
 panels show `(instant)` for their current-value query. It is stdlib Python
 and takes well under a second.
