@@ -1,0 +1,5 @@
+# Nightly issue worker (nightly/run.sh), 1 AM VM local time, up to 5 hours.
+# Not installed automatically. To install, as root:
+#   crontab -l | cat - /root/middle-earth-gadget-monitor/nightly/crontab | crontab -
+# To stop it, remove the line with `crontab -e`.
+0 1 * * * /root/middle-earth-gadget-monitor/nightly/run.sh
