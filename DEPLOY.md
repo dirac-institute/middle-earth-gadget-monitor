@@ -46,6 +46,7 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 | `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_users.py`, sharing `user_usage.py`) |
 | `backup/` | Backup image: `backup-loop.sh` (scheduler), `backup-once.sh`, `restore.sh`, vmbackup/vmrestore binaries |
 | `dev-startup.sh` | Local development with Docker |
+| `tools/` | Checking dashboards from the VM: `panel_data.py` (what each panel would draw, as text), `screenshot.sh` (PNG of a panel or dashboard). Not deployed; see README.md, "Checking a dashboard" |
 
 ## Containers
 
