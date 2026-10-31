@@ -13,8 +13,7 @@
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Bash(git -C /root/middle-earth-gadget-monitor:*)",
-      "Edit(//root/middle-earth-gadget-monitor/**)",
-      "Write(//root/middle-earth-gadget-monitor/**)"
+      "Edit(//root/middle-earth-gadget-monitor/**)"
     ]
   }
 }
