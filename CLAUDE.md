@@ -34,6 +34,8 @@ There is no test suite. Test against the real thing:
   (and `gen_users.py > dashboards-admin/users.json`). Deploy, then check the
   panels through the Grafana API, e.g.
   `curl -s 'http://127.0.0.1:8080/api/dashboards/uid/<uid>'`.
+  A dashboard added on a branch needs no cleanup after testing: provisioning
+  has `disableDeletion: false`, so redeploying `main` removes it again.
 - **Query the database** (port 8428 is not published to the host):
   ```bash
   podman exec gadget-monitor-collector python3 -c "import sys,urllib.request,urllib.parse; print(urllib.request.urlopen('http://victoriametrics:8428/api/v1/query?query='+urllib.parse.quote(sys.argv[1])).read().decode())" 'gadget_check_success'
