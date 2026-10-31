@@ -72,7 +72,8 @@
           "expr": "max by (site) (gadget_website_up{site=~\"$site\"})",
           "legendFormat": "{{site}}",
           "refId": "A",
-          "range": true
+          "range": true,
+          "instant": false
         }
       ],
       "fieldConfig": {
@@ -154,7 +155,7 @@
           "expr": "avg_over_time(gadget_website_up{site=~\"$site\"}[$__range])",
           "legendFormat": "{{site}}",
           "refId": "A",
-          "range": true,
+          "range": false,
           "instant": true
         }
       ],
@@ -225,7 +226,7 @@
           "expr": "max by (site) (gadget_website_cert_expiry_timestamp_seconds{site=~\"$site\"}) - time()",
           "legendFormat": "{{site}}",
           "refId": "A",
-          "range": true,
+          "range": false,
           "instant": true
         }
       ],
@@ -295,7 +296,8 @@
           "expr": "gadget_website_seconds{site=~\"$site\", stage=\"total\"}",
           "legendFormat": "{{site}}",
           "refId": "A",
-          "range": true
+          "range": true,
+          "instant": false
         }
       ],
       "fieldConfig": {
@@ -352,7 +354,8 @@
           "expr": "sum by (site, status) (gadget_website_status{site=~\"$site\", status!=\"ok\"}) > 0",
           "legendFormat": "{{site}} {{status}}",
           "refId": "A",
-          "range": true
+          "range": true,
+          "instant": false
         }
       ],
       "fieldConfig": {
@@ -362,6 +365,7 @@
             "mode": "palette-classic"
           },
           "decimals": 0,
+          "noValue": "No failures",
           "custom": {
             "drawStyle": "points",
             "lineWidth": 2,
@@ -399,8 +403,8 @@
       "gridPos": {
         "x": 0,
         "y": 17,
-        "w": 12,
-        "h": 8
+        "w": 24,
+        "h": 6
       },
       "targets": [
         {
@@ -411,7 +415,8 @@
           "expr": "gadget_website_http_status{site=~\"$site\"}",
           "legendFormat": "{{site}}",
           "refId": "A",
-          "range": true
+          "range": true,
+          "instant": false
         }
       ],
       "fieldConfig": {
@@ -456,7 +461,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 23,
         "w": 24,
         "h": 9
       },
@@ -466,50 +471,55 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_website_seconds{site=\"$site\", stage=\"dns\"}",
+          "expr": "gadget_website_seconds{site=~\"$site\", stage=\"dns\"}",
           "legendFormat": "dns",
           "refId": "A",
-          "range": true
+          "range": true,
+          "instant": false
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_website_seconds{site=\"$site\", stage=\"connect\"}",
+          "expr": "gadget_website_seconds{site=~\"$site\", stage=\"connect\"}",
           "legendFormat": "connect",
           "refId": "B",
-          "range": true
+          "range": true,
+          "instant": false
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_website_seconds{site=\"$site\", stage=\"tls\"}",
+          "expr": "gadget_website_seconds{site=~\"$site\", stage=\"tls\"}",
           "legendFormat": "tls",
           "refId": "C",
-          "range": true
+          "range": true,
+          "instant": false
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_website_seconds{site=\"$site\", stage=\"response\"}",
+          "expr": "gadget_website_seconds{site=~\"$site\", stage=\"response\"}",
           "legendFormat": "response",
           "refId": "D",
-          "range": true
+          "range": true,
+          "instant": false
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_website_seconds{site=\"$site\", stage=\"body\"}",
+          "expr": "gadget_website_seconds{site=~\"$site\", stage=\"body\"}",
           "legendFormat": "body",
           "refId": "E",
-          "range": true
+          "range": true,
+          "instant": false
         }
       ],
       "fieldConfig": {

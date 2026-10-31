@@ -19,8 +19,10 @@ S = 'site=~"$site"'
 LEGEND = {"displayMode": "list", "placement": "bottom", "showLegend": True}
 pid = 0
 
-def target(expr, legend, ref="A", **kw):
-    return {"datasource": DS, "expr": expr, "legendFormat": legend, "refId": ref, "range": True, **kw}
+def target(expr, legend, ref="A", instant=False):
+    # Not both: a stat would then list every site twice.
+    return {"datasource": DS, "expr": expr, "legendFormat": legend, "refId": ref,
+            "range": not instant, "instant": instant}
 
 def panel(kind, title, grid, targets, desc, unit=None, overrides=None, custom=None, options=None, extra=None, **defaults):
     global pid
@@ -87,13 +89,15 @@ panels = [
         "(or more than 5 redirects); timeout: no complete answer within 15 s; dns_error, "
         "connect_error, tls_error (including a certificate that doesn't verify): failed at that "
         "step; error: a malformed or broken response. Empty is good.", "short",
-        {"drawStyle": "points", "pointSize": 6}, decimals=0),
-    ts("HTTP status", (0, 17, 12, 8),
+        {"drawStyle": "points", "pointSize": 6}, decimals=0, noValue="No failures"),
+    ts("HTTP status", (0, 17, 24, 6),
         [target(f'gadget_website_http_status{{{S}}}', "{{site}}")],
         "Status code of the final response (after redirects). 0 means no response at all.",
         "none", decimals=0),
-    panel("timeseries", "Response time by stage: $site", (0, 25, 24, 9),
-        [target(f'gadget_website_seconds{{site="$site", stage="{st}"}}', st, chr(ord("A") + i))
+    panel("timeseries", "Response time by stage: $site", (0, 23, 24, 9),
+        # =~ even for one site: Grafana regex-escapes the value ("lsdb\\.io"), which only
+        # matches as a regex.
+        [target(f'gadget_website_seconds{{site=~"$site", stage="{st}"}}', st, chr(ord("A") + i))
          for i, st in enumerate(STAGE_COLORS)],
         "Where the response time goes, stacked. dns: name lookup; connect: TCP; tls: handshake and "
         "certificate check; response: request sent until the headers arrive (mostly the server "
