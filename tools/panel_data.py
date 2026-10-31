@@ -70,8 +70,8 @@ def frames_series(frames):
 
 
 def resolve_vars(g, dash, frm, to, overrides):
-    """{name: [values]} for each template variable, and the text to substitute for it."""
-    out = {}
+    """{name: [values]} for each template variable, and {name: allValue} for those left at All."""
+    out, all_text = {}, {}
     for v in dash.get("templating", {}).get("list", []):
         name = v["name"]
         if name in overrides:
@@ -90,21 +90,34 @@ def resolve_vars(g, dash, frm, to, overrides):
                 res = g.query([{"refId": "v", "datasource": v.get("datasource") or {"uid": "victoriametrics"},
                                 "expr": f"group by ({m[2]}) ({m[1]})", "instant": True, "range": False}], frm, to)
                 vals = sorted({lab.get(m[2]) for lab, *_ in frames_series(res.get("v", {}).get("frames", []))} - {None})
+                if v.get("allValue"):
+                    all_text[name] = v["allValue"]
         out[name] = vals
-    return out
+    return out, all_text
 
 
 def fmt_values(vals, multi):
-    if len(vals) == 1:
+    """A variable's values as Grafana's Prometheus datasource writes them into a query."""
+    if not multi:
         return vals[0]
-    # Grafana's Prometheus formatting for a multi-value variable: a regex alternation.
-    return "(" + "|".join(re.sub(r"([\\^$.|?*+()\[\]{}])", r"\\\1", x) for x in vals) + ")" if multi else vals[0]
+    # Multi-value and All variables are regex-escaped even when only one value is
+    # selected (and in each copy of a repeated panel). The backslash is doubled
+    # because it sits inside a PromQL string literal.
+    esc = [re.sub(r"([$^*{}\[\]+?.()|])", r"\\\\\1", x.replace("\\", "\\\\\\\\")) for x in vals]
+    return esc[0] if len(esc) == 1 else "(" + "|".join(esc) + ")"
 
 
 def substitute(s, values):
     for name in sorted(values, key=len, reverse=True):
         s = s.replace("${" + name + "}", values[name]).replace("$" + name, values[name])
     return s
+
+
+def duration_ms(s):
+    m = re.fullmatch(r"[<>]?(\d+)(ms|s|m|h|d)", s.strip())
+    if not m:
+        sys.exit(f"can't parse interval {s!r}")
+    return int(m[1]) * {"ms": 1, "s": 1000, "m": 60000, "h": 3600000, "d": 86400000}[m[2]]
 
 
 def num(x):
@@ -149,7 +162,7 @@ def main():
     frm = a.frm or dash.get("time", {}).get("from", "now-6h")
     to = a.to or dash.get("time", {}).get("to", "now")
     overrides = dict(v.split("=", 1) for v in a.var)
-    var_vals = resolve_vars(g, dash, frm, to, overrides)
+    var_vals, all_text = resolve_vars(g, dash, frm, to, overrides)
     multi = {v["name"]: v.get("multi") or v.get("includeAll") for v in dash.get("templating", {}).get("list", [])}
     print(f"{dash.get('title')} ({a.uid}), {frm} to {to}; "
           + ", ".join(f"{k}={','.join(v)}" for k, v in var_vals.items()))
@@ -162,7 +175,9 @@ def main():
         # A repeated panel is drawn once per value, with the variable set to that one value.
         copies = [{rep: [x]} for x in var_vals.get(rep, [])] if rep else [{}]
         for fixed in copies:
-            vals = {k: fmt_values(fixed.get(k, v), multi.get(k)) for k, v in var_vals.items()}
+            # All is sent as the variable's allValue (e.g. .*) if it has one, as Grafana does.
+            vals = {k: all_text[k] if k in all_text and k not in fixed else fmt_values(fixed.get(k, v), multi.get(k))
+                    for k, v in var_vals.items()}
             title = substitute(p.get("title", ""), {k: ",".join(fixed.get(k, v)) for k, v in var_vals.items()})
             if a.title.lower() not in title.lower():
                 continue
@@ -176,6 +191,10 @@ def main():
                 q["expr"] = substitute(t.get("expr", ""), vals)
                 q["datasource"] = t.get("datasource") or p.get("datasource") or {"uid": "victoriametrics"}
                 q.setdefault("maxDataPoints", a.max_points)
+                if p.get("interval"):
+                    # The panel's minimum step. Without intervalMs the backend falls back to
+                    # the datasource's timeInterval (5m), coarser than what Grafana draws.
+                    q["intervalMs"] = duration_ms(p["interval"])
                 queries.append(q)
             if not queries:
                 print("  (no queries)")
