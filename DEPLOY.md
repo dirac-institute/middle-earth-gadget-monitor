@@ -42,8 +42,9 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 | `agent/agent.py` | Remote agent, sent to each target over the SSH session. Python 3.9, stdlib only |
 | `checks/*.sh` | One check per file (see README.md, "Adding a check") |
 | `config/hosts.toml` | Hosts to monitor |
+| `config/websites.toml` | Websites the collector fetches from this VM (see README.md, "Websites") |
 | `config/known_hosts` | Pinned SSH host keys for the targets |
-| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_users.py`, sharing `user_usage.py`) |
+| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_users.py`, sharing `user_usage.py`) |
 | `backup/` | Backup image: `backup-loop.sh` (scheduler), `backup-once.sh`, `restore.sh`, vmbackup/vmrestore binaries |
 | `dev-startup.sh` | Local development with Docker |
 
@@ -151,7 +152,8 @@ podman compose up -d
 2. `podman logs gadget-monitor-collector`: `agent up` for both hosts, with
    no repeated `connect failed`.
 3. Dashboard: data for both hosts, every check `OK`, both SSH sessions
-   `Connected`.
+   `Connected`. **Websites** shows every site `Up`, or a reason under
+   "Failures by reason" that matches what a browser sees.
 4. On a target, `ps -u astro-gadget -f` should show exactly one
    `python3 -I -u -c import sys;...` agent.
 5. **Last backup** shows under an hour after the first `:07`.
