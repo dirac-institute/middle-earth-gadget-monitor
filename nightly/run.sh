@@ -67,13 +67,19 @@ s.sort(key=lambda x: x.get("startedAt", 0))
 print(s[-1].get(sys.argv[2], "") if s else "")' "$NAME" "$1"
 }
 
-# The last thing Claude said in the session: its summary of the night.
+# The last thing Claude said in the session: its summary of the night. The
+# transcript is filed under the session's working directory, which is a
+# worktree of the clone once the agent has entered one, so look in every
+# project and take the newest.
 final_summary() {
-    python3 - "/root/.claude/projects/-root-gadget-nightly-repo/$1.jsonl" <<'EOF'
-import json, sys
+    python3 - "$1" <<'EOF'
+import glob, json, os, sys
 last = ""
+paths = glob.glob(f"/root/.claude/projects/*/{sys.argv[1]}.jsonl")
 try:
-    for line in open(sys.argv[1]):
+    if not paths:
+        raise OSError(f"{sys.argv[1]}.jsonl not found under /root/.claude/projects")
+    for line in open(max(paths, key=os.path.getmtime)):
         try:
             e = json.loads(line)
         except ValueError:
