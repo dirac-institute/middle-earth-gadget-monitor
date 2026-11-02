@@ -1,0 +1,16 @@
+# Websites probed by the collector, from this VM (not from arnor or gondor).
+#
+# To watch another site, add its URL to the list; it gets its own row on the
+# Websites dashboard. The `site` label is the URL without "https://" and the
+# trailing slash, so keep URLs stable: a renamed URL starts a new series.
+#
+# A site is up when it answers 200 OK (after following up to 5 redirects)
+# within `timeout` seconds, with a certificate that verifies.
+
+interval = 60   # seconds between probes of each site
+timeout = 15    # seconds for the whole request, redirects and body included
+
+urls = [
+    "https://ztf.uw.edu/",
+    "https://lsdb.io/",
+]

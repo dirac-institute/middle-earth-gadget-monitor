@@ -4,9 +4,14 @@ providers:
   - name: gadget-monitor
     folder: gadget-monitor
     type: file
-    disableDeletion: true
+    # The repo is the source of truth: a dashboard whose JSON is gone (removed
+    # from the repo, or deploying main after testing a branch that added one)
+    # is deleted from grafana.db too. Deleting a provisioned dashboard in the
+    # UI or API is refused either way.
+    disableDeletion: false
     # Repo dashboards are read-only in the UI; use "Save as" to keep a
-    # personal copy (stored in grafana.db, which is backed up).
+    # personal copy (stored in grafana.db, which is backed up, and not
+    # touched by provisioning).
     allowUiUpdates: false
     options:
       path: /etc/grafana/dashboards
@@ -16,7 +21,7 @@ providers:
     folder: Admin
     folderUid: gadget-admin
     type: file
-    disableDeletion: true
+    disableDeletion: false   # as above
     allowUiUpdates: false
     options:
       path: /etc/grafana/dashboards-admin
