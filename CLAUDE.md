@@ -31,9 +31,11 @@ There is no test suite. Test against the real thing:
   listed there (Prometheus text, bounded labels, cheap, exit 0).
 - **Dashboards:** edit the generator, never the JSON, then regenerate:
   `cd grafana && python3 gen_hosts_overview.py > dashboards/hosts-overview.json`
-  (and `gen_users.py > dashboards-admin/users.json`). Deploy, then check the
-  panels through the Grafana API, e.g.
-  `curl -s 'http://127.0.0.1:8080/api/dashboards/uid/<uid>'`.
+  (likewise `gen_websites.py > dashboards/websites.json` and
+  `gen_users.py > dashboards-admin/users.json`). Deploy, then check the
+  panels: `tools/panel_data.py <uid>` prints what each panel would draw (as
+  text, cheap), and `tools/screenshot.sh` shows how it looks, when layout or
+  colors matter. See README.md, "Checking a dashboard".
   A dashboard added on a branch needs no cleanup after testing: provisioning
   has `disableDeletion: false`, so redeploying `main` removes it again.
 - **Query the database** (port 8428 is not published to the host):

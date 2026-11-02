@@ -17,7 +17,7 @@
 # it, so only reviewed, merged-and-pulled versions of them ever run.
 #
 # Logs: /root/gadget-nightly/logs/<date>.log (this script plus Claude's final
-# summary).
+# summary). Plan usage snapshots: /root/gadget-nightly/usage.jsonl.
 #
 # One-time setup, done by hand in a root terminal: accept the bypass-permissions
 # disclaimer (IS_SANDBOX=1 claude --dangerously-skip-permissions) and trust
@@ -31,6 +31,7 @@ REPO="$WORK/repo"
 REPO_URL=https://github.com/dirac-institute/middle-earth-gadget-monitor.git
 TIME_LIMIT_S=$((5 * 3600))
 IDLE_STOP=10        # minutes
+USAGE_EVERY=10      # minutes between plan usage snapshots
 LOG_DAYS=60
 NAME="nightly-$(date +%F)"
 
@@ -67,13 +68,19 @@ s.sort(key=lambda x: x.get("startedAt", 0))
 print(s[-1].get(sys.argv[2], "") if s else "")' "$NAME" "$1"
 }
 
-# The last thing Claude said in the session: its summary of the night.
+# The last thing Claude said in the session: its summary of the night. The
+# transcript is filed under the session's working directory, which is a
+# worktree of the clone once the agent has entered one, so look in every
+# project and take the newest.
 final_summary() {
-    python3 - "/root/.claude/projects/-root-gadget-nightly-repo/$1.jsonl" <<'EOF'
-import json, sys
+    python3 - "$1" <<'EOF'
+import glob, json, os, sys
 last = ""
+paths = glob.glob(f"/root/.claude/projects/*/{sys.argv[1]}.jsonl")
 try:
-    for line in open(sys.argv[1]):
+    if not paths:
+        raise OSError(f"{sys.argv[1]}.jsonl not found under /root/.claude/projects")
+    for line in open(max(paths, key=os.path.getmtime)):
         try:
             e = json.loads(line)
         except ValueError:
@@ -89,9 +96,16 @@ print(last)
 EOF
 }
 
+# Plan usage, recorded in $WORK/usage.jsonl (see usage.py).
+usage_snap() {
+    log "$(python3 "$LIVE/nightly/usage.py" snap "$NAME" "$1" 2>&1)"
+}
+
 finish() {
     if [ -n "${ID:-}" ]; then
         claude stop "$ID" >/dev/null 2>&1 && log "stopped session $ID"
+        usage_snap end
+        log "plan usage by run:"$'\n'"$(python3 "$LIVE/nightly/usage.py" report 2>&1)"
     fi
     restore_live
 }
@@ -127,6 +141,7 @@ BEFORE="$(live_state)"
 log "live stack before:"$'\n'"$BEFORE"
 trap finish EXIT
 
+usage_snap start
 log "starting session $NAME at $(git rev-parse --short HEAD)"
 # IS_SANDBOX=1: Claude Code otherwise refuses to skip permission prompts as
 # root. The deny rules in settings.json still apply.
@@ -140,7 +155,9 @@ log "session $ID; watch with: claude attach $NAME"
 
 deadline=$(( $(date +%s) + TIME_LIMIT_S ))
 idle=0
+minutes=0
 while sleep 60; do
+    [ $((++minutes % USAGE_EVERY)) -eq 0 ] && usage_snap sample
     status="$(session_field status)"
     if [ -z "$status" ]; then
         log "session ended on its own"

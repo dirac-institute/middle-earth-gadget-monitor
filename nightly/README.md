@@ -17,6 +17,7 @@ between 1 and 6 AM.
 | File | What it is |
 |---|---|
 | `run.sh` | The cron wrapper: clone reset, session start, idle/time limit, restore |
+| `usage.py` | Plan usage snapshots and the per-run report (see "Plan usage") |
 | `prompt.md` | The nightly task given to Claude |
 | `settings.json` | Deny rules: no merge, close, delete, push to main, or edits to the live checkout |
 | `crontab` | The cron line (not installed automatically) |
@@ -58,6 +59,33 @@ those can end or interrupt the session itself.
 `/root/gadget-nightly/logs/<date>.log` has the wrapper's steps (live stack
 before, session start and stop, restore) and Claude's final summary. Logs are
 kept 60 days.
+
+## Plan usage
+
+`run.sh` records how much of the Claude plan each run uses, so we can tell
+whether there is room for more than one session a night. `usage.py` reads the
+same numbers `/usage` shows in Claude Code (percent used of the 5-hour window
+and of the week) and appends a snapshot to `/root/gadget-nightly/usage.jsonl`
+before the session starts, every 10 minutes while it runs, and after it
+stops. The usage is for the whole account, so anyone else using it during the
+night shows up too.
+
+Each log ends with a per-run table; to see it any time:
+
+```bash
+python3 /root/middle-earth-gadget-monitor/nightly/usage.py report      # last 14 runs
+python3 /root/middle-earth-gadget-monitor/nightly/usage.py report 60
+```
+
+`used` is percentage points of 5-hour window the run took, summed across a
+window reset if the run spans one; `week` is the rise in the weekly figure.
+The 1 AM run usually opens a fresh window, which resets 5 hours later, around
+the time the run's limit is reached. If the OAuth token has expired by 1 AM,
+the start snapshot fails and the report counts from the first sample, a few
+minutes into the run (marked "no start snapshot").
+
+The endpoint is the one Claude Code calls for `/usage`, not a documented API.
+A failed snapshot is logged and recorded as an error; it never stops a run.
 
 ## Setup
 
