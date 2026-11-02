@@ -38,7 +38,7 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 | `service.conf` | Service account name, uid and gid (astro-gadget). The single source of truth; everything else reads it via `.env` |
 | `init.sh` | Host-level setup only: podman, the service account, SSH hardening, `/local` and shire directories, the Grafana admin password, `.env`, and seeding/restoring local state |
 | `compose.yaml` | The four containers and their mounts |
-| `collector/` | Collector image: `collector.py` (scheduler, SSH sessions, VictoriaMetrics writer) plus the agent, checks and config copied in |
+| `collector/` | Collector image: `collector.py` (VictoriaMetrics writer, SSH key, startup) and one module per kind of probe: `ssh_checks.py` (persistent SSH sessions, check scheduler), `ssh_login.py` (login probe), `websites.py` (website probe); plus the agent, checks and config copied in |
 | `agent/agent.py` | Remote agent, sent to each target over the SSH session. Python 3.9, stdlib only |
 | `checks/*.sh` | One check per file (see README.md, "Adding a check") |
 | `config/hosts.toml` | Hosts to monitor |
