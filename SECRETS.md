@@ -8,6 +8,7 @@ into the containers that need them.
 |---|---|---|---|
 | SSH private key | `/service/shire/astro-gadget-ssh-key.key` | collector | infrastructure |
 | Grafana admin password | `/service/shire/gadget-monitor/secrets/grafana-admin-password` | grafana | `init.sh`, if missing |
+| UW NetID sign-in client id and secret | `/service/shire/gadget-monitor/secrets/uw-oidc-client-id`, `uw-oidc-client-secret` | grafana | you, from UW-IT's registration (README.md, "UW NetID sign-in"). Optional: sign-in is off without them |
 
 ## Ownership and root_squash
 
@@ -50,3 +51,8 @@ To change it, write the new password to the file and run
 
 Anonymous visitors get read-only access (Viewer). The admin account is for
 editing datasources, users and settings.
+
+## The UW NetID client secret
+
+Read once when Grafana starts. To rotate it, replace the file (as
+astro-gadget, mode 0600) and `podman compose up -d --force-recreate grafana`.

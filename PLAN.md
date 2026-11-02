@@ -357,6 +357,10 @@ from a corrupt local database: `podman compose down`, move
 
 - **Anonymous access:** `GF_AUTH_ANONYMOUS_ENABLED=true` with organization
   role `Viewer`.
+- **UW NetID sign-in** (OIDC against the UW IdP, as Grafana OSS has no SAML)
+  for the "UW NetID" folder only; see README.md. Since signed-in users and
+  anonymous visitors are both Viewers, the folder is granted to a team the
+  entrypoint keeps every non-admin user in.
 - **One admin account**, password from
   `GF_SECURITY_ADMIN_PASSWORD__FILE` pointing at the shire secret, mounted
   read-only. If the secret is missing, `init.sh` generates it as

@@ -15,7 +15,7 @@
 #                     and as tall as the dashboard otherwise)
 #   --theme light     (default dark)
 #   --tz ZONE         browser time zone (default America/Los_Angeles)
-#   --admin           log in as admin; the Admin folder needs it
+#   --admin           log in as admin; the Admin and UW NetID folders need it
 #   --out FILE        where to write the PNG (default /tmp/gadget-shots/...)
 #
 # Prints the PNG's path and how many times the page shows "No data".

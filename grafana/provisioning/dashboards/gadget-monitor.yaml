@@ -25,3 +25,14 @@ providers:
     allowUiUpdates: false
     options:
       path: /etc/grafana/dashboards-admin
+  # Dashboards for anyone signed in with a UW NetID. The entrypoint gives this
+  # folder to the "UW NetID" team only and keeps every user who is not the
+  # admin in that team, so anonymous viewers never see it.
+  - name: gadget-monitor-uw
+    folder: UW NetID
+    folderUid: gadget-uw
+    type: file
+    disableDeletion: false   # as above
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards-uw
