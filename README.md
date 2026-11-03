@@ -22,6 +22,7 @@ whose password is on shire (see `SECRETS.md`).
 | `SECRETS.md` | The SSH key and Grafana password on `/service/shire`, and who can read them |
 | `PLAN.md` | Design: why the pieces are shaped the way they are, and the size budget |
 | `CLAUDE.md` | Notes for coding agents: testing against the live stack, what never to deploy live, GitHub rules |
+| `rootless/README.md` | Prototype of the stack under rootless podman as astro-gadget (#6): findings, how to run it, what a full move needs |
 | `nightly/README.md` | Nightly agent that works one issue into a PR: setup, watching a session (`claude attach`), logs |
 
 ## How it works

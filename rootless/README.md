@@ -65,11 +65,12 @@ sudo -iu astro-gadget sh -c 'cd gadget-monitor-rootless/repo && podman compose -
   unless-stopped` containers come back after a reboot. Lingering starts the
   user's systemd at boot, which starts this unit.
 
-To undo: stop the prototype, `sudo -iu astro-gadget podman system reset -f`
-(frees the images; it needs the subordinate ids, so do it first),
-`loginctl disable-linger astro-gadget`, and delete the `astro-gadget:` lines from `/etc/subuid` and `/etc/subgid` by hand.
-(`usermod --del-subuids` refuses while any astro-gadget process runs, and the
-rootful stack's containers run as astro-gadget.)
+To undo: stop the prototype, run `sudo -iu astro-gadget podman system reset -f`
+(frees the images; it needs the subordinate ids, so do it first), then
+`loginctl disable-linger astro-gadget`, and delete the `astro-gadget:` lines
+from `/etc/subuid` and `/etc/subgid` by hand. (`usermod --del-subuids`
+refuses while any astro-gadget process runs, and the rootful stack's
+containers run as astro-gadget.)
 
 ## What `compose.rootless.yaml` changes, and why
 
@@ -96,17 +97,27 @@ Tested 2026-11-03 on this VM (Rocky 10.2, podman 5.8.2, podman-compose
   that data.
 - The Grafana entrypoint syncs the admin password and locks the Admin folder
   (anonymous gets 403), as it does rootful.
+- The steps under "Running the prototype" work as written from a clean host
+  (no subordinate ids, no lingering, no images), and `setup.sh` is safe to
+  re-run.
 - `restore.sh` (via `setup.sh`) restored the real latest backup, mounted
-  read-only, into the prototype's `local/`, and `backup-once.sh` wrote a
-  complete `latest` and `daily` into the prototype's `shire/backup`.
+  read-only, into the prototype's `local/`, and the backup container wrote a
+  complete `latest` and `daily` into the prototype's `shire/backup`. The real
+  backups on shire kept their own timestamps.
+- **Restart:** turning lingering off stopped the user's systemd and every
+  rootless container; turning it back on started the user's systemd, whose
+  `podman-restart.service` brought all four back. That is the path a reboot
+  takes. The rootful containers, which also run as uid astro-gadget, were
+  unaffected: they live in root's podman, not in the user's session.
+- The hosts overview matched the live one: the only empty panels on either
+  were "Users per week" and "Lines dropped", empty on both.
 - Rootless podman keeps its images in `~astro-gadget/.local/share/containers`
   on `/`: about 3.5 GB for this stack, a second copy beside root's while both
   exist.
 - `podman-compose` 1.5 doesn't interpolate `${VAR}` inside a value tagged
   `!override`, hence the literal port in the override.
-- Not tested: a reboot (lingering + the user `podman-restart.service` should
-  bring it back, as the system unit does for rootful), and serving through the
-  reverse proxy.
+- Not tested: an actual VM reboot (see "Restart" above for what was), and
+  serving through the reverse proxy.
 
 ## What a full move would involve
 
@@ -114,19 +125,20 @@ Not done; listed so the decision can be made with the cost in view.
 
 1. **State can stay where it is.** `/local/gadget-monitor` is already owned by
    astro-gadget, and with keep-id the containers see it exactly as they do
-   now, so no copy or chown. Secrets and backups on shire get simpler: the
-   containers already read them as astro-gadget, and nothing on the host
-   needs root to reach them.
+   now, so no copy or chown. Shire is unaffected for the same reason: the
+   containers already read and write it as astro-gadget.
 2. **Cut-over:** `podman compose down` as root, then `up -d --build` as
    astro-gadget from a checkout it owns, with the same `.env` and Grafana
    back on 8080 (drop the port override). The reverse proxy doesn't change.
 3. **`init.sh`** would add the subordinate ids, lingering and the user
    `podman-restart` unit, and run its podman steps (the restore) as
    astro-gadget. Root is still needed for those, packages and SSH hardening.
-4. **keep-id belongs in the deployment, not `compose.yaml`:** rootful podman
-   and Docker (`dev-startup.sh`) reject `userns_mode: keep-id`. Keeping it in
-   an override file (or `COMPOSE_FILE=compose.yaml:rootless/compose.rootless.yaml`
-   in `.env`) keeps `compose.yaml` portable.
+4. **keep-id belongs in the deployment, not `compose.yaml`:** it only means
+   something to rootless podman, and Docker (`dev-startup.sh`) has no such
+   mode. Keeping it in an override file keeps `compose.yaml` portable. To spare typing the `-f`
+   pair, astro-gadget's profile can export
+   `COMPOSE_FILE=compose.yaml:rootless/compose.rootless.yaml` (podman-compose
+   1.5 honours it from the environment, but not from `.env`).
 5. **Every documented command** that runs `podman` (README.md, DEPLOY.md,
    CLAUDE.md, `tools/`, the nightly wrapper's "live stack before/after"
    check and restore) would run as astro-gadget, via `sudo -iu astro-gadget`.
