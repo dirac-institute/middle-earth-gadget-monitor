@@ -33,9 +33,15 @@ SSH_KEY=/service/shire/astro-gadget-ssh-key.key
 [ "$(id -u)" -eq 0 ] || { echo "must run as root" >&2; exit 1; }
 [ "$(stat -c %u "$REPO_DIR")" = "$SVC_UID" ] || { echo "$REPO_DIR must be owned by $SVC_USER" >&2; exit 1; }
 
-# A login session sets XDG_RUNTIME_DIR, which rootless podman and
-# systemctl --user need.
-as_svc() { sudo -iu "$SVC_USER" "$@"; }
+# As the service account, with the environment rootless podman and
+# systemctl --user expect from a login. (Not sudo -i: it re-quotes the
+# command for a login shell but leaves $ unescaped, so "$1" expands too early.)
+as_svc() {
+    (cd / && setpriv --reuid="$SVC_UID" --regid="$SVC_GID" --init-groups \
+        env HOME="$SVC_HOME" USER="$SVC_USER" LOGNAME="$SVC_USER" \
+            XDG_RUNTIME_DIR="/run/user/$SVC_UID" "$@")
+}
+SVC_HOME="$(getent passwd "$SVC_USER" | cut -d: -f6)"
 
 echo "== Subordinate ids =="
 if grep -q "^$SVC_USER:" /etc/subuid && grep -q "^$SVC_USER:" /etc/subgid; then
