@@ -381,7 +381,7 @@ from a corrupt local database: `podman compose down`, move
 service.conf             astro-gadget identity (done)
 init.sh                  + /local dirs, restore logic, grafana secret, --fresh / --restore-from
 compose.yaml             victoriametrics, grafana, collector, backup
-collector/               Dockerfile, collector.py, requirements
+collector/               Dockerfile, collector.py + ssh_checks.py, ssh_login.py, websites.py
 agent/agent.py           remote agent (stdlib, py3.9)
 checks/                  cpu.sh, load.sh, memory.sh
 config/hosts.toml        arnor, gondor: hostname, user, enabled checks
