@@ -65,8 +65,11 @@ sudo -iu astro-gadget sh -c 'cd gadget-monitor-rootless/repo && podman compose -
   unless-stopped` containers come back after a reboot. Lingering starts the
   user's systemd at boot, which starts this unit.
 
-To undo: `loginctl disable-linger astro-gadget`, then
-`usermod --del-subuids 3000000000-3000065535 --del-subgids 3000000000-3000065535 astro-gadget`.
+To undo: stop the prototype, `sudo -iu astro-gadget podman system reset -f`
+(frees the images; it needs the subordinate ids, so do it first),
+`loginctl disable-linger astro-gadget`, and delete the `astro-gadget:` lines from `/etc/subuid` and `/etc/subgid` by hand.
+(`usermod --del-subuids` refuses while any astro-gadget process runs, and the
+rootful stack's containers run as astro-gadget.)
 
 ## What `compose.rootless.yaml` changes, and why
 
