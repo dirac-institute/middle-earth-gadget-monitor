@@ -38,8 +38,9 @@ SSH_KEY=/service/shire/astro-gadget-ssh-key.key
 # command for a login shell but leaves $ unescaped, so "$1" expands too early.)
 as_svc() {
     (cd / && setpriv --reuid="$SVC_UID" --regid="$SVC_GID" --init-groups \
-        env HOME="$SVC_HOME" USER="$SVC_USER" LOGNAME="$SVC_USER" \
-            XDG_RUNTIME_DIR="/run/user/$SVC_UID" "$@")
+        env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$SVC_HOME" \
+            USER="$SVC_USER" LOGNAME="$SVC_USER" XDG_RUNTIME_DIR="/run/user/$SVC_UID" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$SVC_UID/bus" "$@")
 }
 SVC_HOME="$(getent passwd "$SVC_USER" | cut -d: -f6)"
 
