@@ -298,8 +298,10 @@ The projection is computed in Grafana (`grafana/gen_storage.py`), not
 stored. Bytes per sample shrinks as VictoriaMetrics merges data into larger
 parts, so the projection tends to err high. The samples-per-day rate is the
 last day's increase divided by the time it actually covers (not `rate()`,
-which VictoriaMetrics divides by the whole window), so it is right from the
-second sample on, but in the first day it extrapolates from less.
+which VictoriaMetrics divides by the whole window), so the tiles are right
+from the second sample on. In the probe's first day ever, the graphs read
+high: in range queries VictoriaMetrics counts the counter's first sample as
+an increase from zero. That goes away once the series is a day old.
 
 ## Local development
 
