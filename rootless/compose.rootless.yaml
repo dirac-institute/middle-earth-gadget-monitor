@@ -1,0 +1,22 @@
+# Rootless prototype (issue #6): compose.yaml run by the service account's
+# own podman. See rootless/README.md.
+#
+#   podman compose -f compose.yaml -f rootless/compose.rootless.yaml up -d --build
+#
+# keep-id maps the service account's host uid to the same uid inside each
+# container, so `user: ${SVC_UID}` in compose.yaml is the real astro-gadget
+# and can read and write its own bind mounts. Without it, that uid would be
+# one of the subordinate ids and the mounts would be unreadable.
+services:
+  victoriametrics:
+    userns_mode: keep-id
+  grafana:
+    userns_mode: keep-id
+    # Off 8080 so the prototype can run beside the rootful stack. The value
+    # is literal because podman-compose 1.5 doesn't interpolate !override.
+    ports: !override
+      - "127.0.0.1:18080:3000"
+  collector:
+    userns_mode: keep-id
+  backup:
+    userns_mode: keep-id

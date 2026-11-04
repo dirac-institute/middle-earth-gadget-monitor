@@ -49,6 +49,9 @@ Where the build differs from the original plan:
   targets: they aren't served from arnor or gondor, and the VM needs no SSH
   session to reach them. The VM is on the UW network, so this doesn't prove a
   site is reachable from off campus.
+- **Rootless podman is prototyped, not adopted** (#6). The stack runs
+  unchanged under astro-gadget's own podman with a small compose override;
+  see `rootless/README.md`. The real deployment is still rootful.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 
