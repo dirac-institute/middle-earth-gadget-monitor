@@ -1,10 +1,11 @@
-"""Storage probe: how big the metrics database is and how much room it has.
+"""Metrics storage probe: how big gadget-monitor's own metrics database is
+and how much room it has.
 
 Every few minutes, reads VictoriaMetrics' own /metrics (data size, samples
 stored and ingested, retention) and the free space on the /local partition
 that holds it. The projection (when the disk fills, or how big the database
-settles at) is worked out in Grafana from these; see the Monitoring storage
-dashboard.
+settles at) is worked out in Grafana from these; see the Gadget metrics
+storage dashboard.
 """
 
 import asyncio
@@ -19,8 +20,8 @@ from pathlib import Path
 from collector import VM_URL
 
 LOCAL_DIR = Path("/srv/local")     # ${GADGET_LOCAL_DIR}, mounted read-only
-STORAGE_INTERVAL_S = 300
-STORAGE_OFFSET_S = 45              # clear of the hosts' and websites' probes
+METRICS_STORAGE_INTERVAL_S = 300
+METRICS_STORAGE_OFFSET_S = 45              # clear of the hosts' and websites' probes
 
 # VictoriaMetrics duration suffixes; a bare number is months.
 RETENTION_UNITS = {"h": 3600, "d": 86400, "w": 7 * 86400, "y": 365 * 86400}
@@ -46,7 +47,7 @@ def parse_retention(value):
     return n * RETENTION_UNITS[m[2]] if m[2] else n * 31 * 86400
 
 
-def read_storage():
+def read_metrics_storage():
     """Blocking; run it in a thread. Returns {metric name: value}."""
     with urllib.request.urlopen(f"{VM_URL}/metrics", timeout=30) as resp:
         text = resp.read().decode()
@@ -69,15 +70,15 @@ def read_storage():
     return out
 
 
-async def storage_loop(writer):
+async def metrics_storage_loop(writer):
     while True:
         now = time.time()
-        await asyncio.sleep(math.floor((now - STORAGE_OFFSET_S) / STORAGE_INTERVAL_S + 1)
-                            * STORAGE_INTERVAL_S + STORAGE_OFFSET_S - now)
+        await asyncio.sleep(math.floor((now - METRICS_STORAGE_OFFSET_S) / METRICS_STORAGE_INTERVAL_S + 1)
+                            * METRICS_STORAGE_INTERVAL_S + METRICS_STORAGE_OFFSET_S - now)
         ts_ms = int(time.time() * 1000)
         try:
-            values = await asyncio.wait_for(asyncio.to_thread(read_storage), 60)
+            values = await asyncio.wait_for(asyncio.to_thread(read_metrics_storage), 60)
         except Exception as e:
-            log.warning("storage probe failed: %r", e)
+            log.warning("metrics storage probe failed: %r", e)
             continue
         writer.add([f"{name} {value:.0f} {ts_ms}" for name, value in values.items()])

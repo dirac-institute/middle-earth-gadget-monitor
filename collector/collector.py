@@ -110,9 +110,9 @@ async def install_key():
 
 async def main():
     # Imported here, not at the top: they import from this module.
+    import metrics_storage
     import ssh_checks
     import ssh_login
-    import storage
     import websites
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -128,7 +128,7 @@ async def main():
     tasks = [asyncio.create_task(writer.run())]
     # Websites don't need the SSH key; start them before waiting on shire for it.
     tasks += [asyncio.create_task(s.probe_loop()) for s in sites]
-    tasks.append(asyncio.create_task(storage.storage_loop(writer)))
+    tasks.append(asyncio.create_task(metrics_storage.metrics_storage_loop(writer)))
     await install_key()
     for h in hosts:
         for loop in (h.connection_loop, h.ping_loop, h.status_loop, h.schedule_loop):

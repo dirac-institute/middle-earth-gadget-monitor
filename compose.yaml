@@ -85,7 +85,7 @@ services:
       # touch the hard-mounted NFS share.
       - "${GADGET_SSH_KEY}:/run/secrets/ssh-key:ro"
       # Only for the free space on the partition holding the database
-      # (storage probe); nothing is read from it.
+      # (metrics storage probe); nothing is read from it.
       - "${GADGET_LOCAL_DIR}:/srv/local:ro"
     restart: unless-stopped
     labels:

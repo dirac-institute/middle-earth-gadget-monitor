@@ -51,7 +51,7 @@ Where the build differs from the original plan:
   site is reachable from off campus.
 - **Retention raised from 100 days to one year** (#20), to match UW's
   records schedule (see "Retention" below). The collector now also probes
-  the database's own size and the free space on `/local`, and a **Monitoring
+  the database's own size and the free space on `/local`, and a **Gadget metrics
   storage** dashboard projects when the disk would fill or the size the
   database levels off at.
 - **The VM reboot test has not been run.** It would end the session doing
@@ -333,7 +333,7 @@ about a month past one year. The backups on shire are copies of the live
 database (incremental `vmbackup` of `latest`, and `daily`), so they expire
 along with it, at most a day later.
 
-The **Monitoring storage** dashboard (README.md) projects whether a year of
+The **Gadget metrics storage** dashboard (README.md) projects whether a year of
 data fits on `/local`.
 
 ### Backup (the `backup` container)
@@ -404,7 +404,7 @@ from a corrupt local database: `podman compose down`, move
 service.conf             astro-gadget identity (done)
 init.sh                  + /local dirs, restore logic, grafana secret, --fresh / --restore-from
 compose.yaml             victoriametrics, grafana, collector, backup
-collector/               Dockerfile, collector.py + ssh_checks.py, ssh_login.py, websites.py, storage.py
+collector/               Dockerfile, collector.py + ssh_checks.py, ssh_login.py, websites.py, metrics_storage.py
 agent/agent.py           remote agent (stdlib, py3.9)
 checks/                  cpu.sh, load.sh, memory.sh
 config/hosts.toml        arnor, gondor: hostname, user, enabled checks

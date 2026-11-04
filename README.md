@@ -47,8 +47,8 @@ whose password is on shire (see `SECRETS.md`).
   (`/local/gadget-monitor`) for one year (see PLAN.md, "Retention").
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
-- **Grafana** has provisioned "Hosts overview", "Websites" and "Monitoring
-  storage" dashboards.
+- **Grafana** has provisioned "Hosts overview", "Websites" and "Gadget
+  metrics storage" dashboards.
 
 ## Adding a check
 
@@ -266,7 +266,7 @@ And for every host:
 
 The backup container records `gadget_backup_*` and `gadget_storage_bytes`.
 
-## Monitoring storage
+## Gadget metrics storage
 
 The collector also watches its own database. Every 5 minutes it reads
 VictoriaMetrics' `/metrics` and the free space on `/local` (mounted
@@ -280,7 +280,7 @@ read-only into the collector at `/srv/local`; nothing is read from it):
 | `gadget_vm_retention_seconds` | `-retentionPeriod`, as set in `compose.yaml` |
 | `gadget_local_disk_{size,free}_bytes` | Size of the `/local` partition, and the space still free on it |
 
-The **Monitoring storage** dashboard plots the database against the
+The **Gadget metrics storage** dashboard plots the database against the
 partition (and the backup's 4.5 GiB cap) and projects where it is heading,
 assuming data keeps arriving at the last day's rate and costs what it costs
 now per sample:
@@ -294,7 +294,7 @@ now per sample:
   the retention period this is the same as showing the date only if it is
   less than a year away.
 
-The projection is computed in Grafana (`grafana/gen_storage.py`), not
+The projection is computed in Grafana (`grafana/gen_metrics_storage.py`), not
 stored. Bytes per sample shrinks as VictoriaMetrics merges data into larger
 parts, so the projection tends to err high. The samples-per-day rate is the
 last day's increase divided by the time it actually covers (not `rate()`,

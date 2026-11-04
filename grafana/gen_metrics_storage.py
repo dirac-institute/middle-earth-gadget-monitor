@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Generates grafana/dashboards/storage.json (the source of truth for it).
+"""Generates grafana/dashboards/metrics-storage.json (the source of truth for it).
 
-    python3 grafana/gen_storage.py > grafana/dashboards/storage.json
+    python3 grafana/gen_metrics_storage.py > grafana/dashboards/metrics-storage.json
 
-The monitoring service's own storage: the VictoriaMetrics database against
-the /local partition it lives on, from the collector's storage probe
-(collector/storage.py), and a projection of where it is heading.
+Storage for gadget-monitor's own metrics only: the VictoriaMetrics database against
+the /local partition it lives on, from the collector's metrics storage probe
+(collector/metrics_storage.py), and a projection of where it is heading.
 
 The projection assumes data keeps arriving at today's rate and costs what it
 costs now per sample:
@@ -135,9 +135,9 @@ panels = [
 ]
 
 dash = {
-    "uid": "gadget-storage",
-    "title": "Monitoring storage",
-    "description": "Size of the metrics database against the VM disk it lives on, and where it is heading.",
+    "uid": "gadget-metrics-storage",
+    "title": "Gadget metrics storage",
+    "description": "Size of gadget-monitor's own metrics database against the VM disk it lives on, and where it is heading.",
     "tags": ["gadget-monitor"],
     "schemaVersion": 41,
     "editable": False,

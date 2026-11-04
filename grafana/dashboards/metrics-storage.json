@@ -1,7 +1,7 @@
 {
-  "uid": "gadget-storage",
-  "title": "Monitoring storage",
-  "description": "Size of the metrics database against the VM disk it lives on, and where it is heading.",
+  "uid": "gadget-metrics-storage",
+  "title": "Gadget metrics storage",
+  "description": "Size of gadget-monitor's own metrics database against the VM disk it lives on, and where it is heading.",
   "tags": [
     "gadget-monitor"
   ],
