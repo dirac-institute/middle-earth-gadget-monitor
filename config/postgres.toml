@@ -1,0 +1,30 @@
+# PostgreSQL servers probed by the collector, from this VM.
+#
+# Each server is a VM deployed from dirac-institute/middle-earth-postgres,
+# which runs a monitoring endpoint (pg-monitor) on port 9187. Every minute
+# the collector checks the VM answers, that PostgreSQL's port is reachable,
+# and imports the endpoint's metrics with a `server` label. The Postgres
+# dashboard picks up a new server with no change.
+#
+# `name` becomes the `server` label: keep it stable, a renamed server starts
+# new series.
+#
+# Optional per server:
+#   port         PostgreSQL port (default 5432)
+#   vm_port      a TCP port that answers whenever the VM is up (default 22)
+#   metrics_url  default "http://<address>:9187/metrics"
+#   prefixes     extra metric-name prefixes this server may send, for its own
+#                namespaced metrics (monitor/custom/*.sql in that repo), e.g.
+#                ["mpc_"]. pg_, pgbackrest_ and pgmon_ are always accepted;
+#                anything else is dropped (and counted).
+
+interval = 60   # seconds between probes of each server
+timeout = 15    # seconds for each part of a probe
+
+[[server]]
+name = "mpg"
+address = "mpg.astro.washington.edu"
+
+# [[server]]
+# name = "deep"
+# address = "<deep db vm>.astro.washington.edu"
