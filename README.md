@@ -44,10 +44,11 @@ whose password is on shire (see `SECRETS.md`).
   timeout and returns their output. A normal cycle opens no new SSH
   connection and never touches the NFS home directory on the targets.
 - **VictoriaMetrics** stores the data on the VM's local disk
-  (`/local/gadget-monitor`) for 100 days.
+  (`/local/gadget-monitor`) for one year (see PLAN.md, "Retention").
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
-- **Grafana** has provisioned "Hosts overview" and "Websites" dashboards.
+- **Grafana** has provisioned "Hosts overview", "Websites" and "Monitoring
+  storage" dashboards.
 
 ## Adding a check
 
@@ -72,7 +73,7 @@ Rules:
 2. **Don't set `host` or `check` labels.** The collector adds them, and drops
    lines that try.
 3. **Never use unbounded values as labels**: no PIDs, job or session IDs.
-   Every distinct label combination is a new series stored for 100 days, and
+   Every distinct label combination is a new series stored for a year, and
    series count is the main threat to the size budget. More than 500 lines
    per run are dropped. The one deliberate exception is `user` in the `users`
    checks: it is bounded by the hosts' accounts (~800), not by time.
@@ -246,8 +247,8 @@ page arrives within 15 s. For each site:
 | `gadget_website_seconds{site,stage}` | Time per stage, summed over redirects: `dns`, `connect`, `tls`, `response` (request sent until headers), `body`, and `total` (also recorded, up to the failure, when a probe fails) |
 | `gadget_website_cert_expiry_timestamp_seconds{site}` | When the certificate served expires |
 
-Each site is about 16 series, sampled every minute: roughly 2.3 million
-samples (a few MB) per site over 100 days.
+Each site is about 16 series, sampled every minute: roughly 8.4 million
+samples (about 10 MB) per site over a year.
 
 ## Collector metrics
 
@@ -264,6 +265,41 @@ And for every host:
 - `gadget_clock_skew_seconds`.
 
 The backup container records `gadget_backup_*` and `gadget_storage_bytes`.
+
+## Monitoring storage
+
+The collector also watches its own database. Every 5 minutes it reads
+VictoriaMetrics' `/metrics` and the free space on `/local` (mounted
+read-only into the collector at `/srv/local`; nothing is read from it):
+
+| Metric | Meaning |
+|---|---|
+| `gadget_vm_data_bytes` | Database size on disk, samples and series index |
+| `gadget_vm_stored_samples` | Samples on disk |
+| `gadget_vm_samples_added_total` | Samples written (counter; resets when VictoriaMetrics restarts) |
+| `gadget_vm_retention_seconds` | `-retentionPeriod`, as set in `compose.yaml` |
+| `gadget_local_disk_{size,free}_bytes` | Size of the `/local` partition, and the space still free on it |
+
+The **Monitoring storage** dashboard plots the database against the
+partition (and the backup's 4.5 GiB cap) and projects where it is heading,
+assuming data keeps arriving at the last day's rate and costs what it costs
+now per sample:
+- **growth per day** = bytes per stored sample × samples written in the
+  last day;
+- **steady state** = growth per day × (retention + 31 days), since
+  VictoriaMetrics drops old data a whole month at a time;
+- if the steady state fits in the database's space (its size plus the free
+  space on `/local`), the dashboard shows the steady state; otherwise it
+  shows the date the free space runs out. While the database is younger than
+  the retention period this is the same as showing the date only if it is
+  less than a year away.
+
+The projection is computed in Grafana (`grafana/gen_storage.py`), not
+stored. Bytes per sample shrinks as VictoriaMetrics merges data into larger
+parts, so the projection tends to err high. The samples-per-day rate is the
+last day's increase divided by the time it actually covers (not `rate()`,
+which VictoriaMetrics divides by the whole window), so it is right from the
+second sample on, but in the first day it extrapolates from less.
 
 ## Local development
 

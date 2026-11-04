@@ -38,13 +38,13 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 | `service.conf` | Service account name, uid and gid (astro-gadget). The single source of truth; everything else reads it via `.env` |
 | `init.sh` | Host-level setup only: podman, the service account, SSH hardening, `/local` and shire directories, the Grafana admin password, `.env`, and seeding/restoring local state |
 | `compose.yaml` | The four containers and their mounts |
-| `collector/` | Collector image: `collector.py` (VictoriaMetrics writer, SSH key, startup) and one module per kind of probe: `ssh_checks.py` (persistent SSH sessions, check scheduler), `ssh_login.py` (login probe), `websites.py` (website probe); plus the agent, checks and config copied in |
+| `collector/` | Collector image: `collector.py` (VictoriaMetrics writer, SSH key, startup) and one module per kind of probe: `ssh_checks.py` (persistent SSH sessions, check scheduler), `ssh_login.py` (login probe), `websites.py` (website probe), `storage.py` (database size and free space on `/local`); plus the agent, checks and config copied in |
 | `agent/agent.py` | Remote agent, sent to each target over the SSH session. Python 3.9, stdlib only |
 | `checks/*.sh` | One check per file (see README.md, "Adding a check") |
 | `config/hosts.toml` | Hosts to monitor |
 | `config/websites.toml` | Websites the collector fetches from this VM (see README.md, "Websites") |
 | `config/known_hosts` | Pinned SSH host keys for the targets |
-| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_users.py`, sharing `user_usage.py`) |
+| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_storage.py`, `gen_users.py`, sharing `user_usage.py`) |
 | `backup/` | Backup image: `backup-loop.sh` (scheduler), `backup-once.sh`, `restore.sh`, vmbackup/vmrestore binaries |
 | `dev-startup.sh` | Local development with Docker |
 | `tools/` | Checking dashboards from the VM: `panel_data.py` (what each panel would draw, as text), `screenshot.sh` (PNG of a panel or dashboard). Not deployed; see README.md, "Checking a dashboard" |
@@ -85,13 +85,15 @@ closes.
 
 | What | Where | Bound |
 |---|---|---|
-| Live database | `/local/gadget-monitor/vm` | 100 days retention; series caps (20k per hour, 50k per day). The backup refuses to copy anything if it grows past 4.5 GiB |
+| Live database | `/local/gadget-monitor/vm` | One year retention; series caps (20k per hour, 50k per day). The backup refuses to copy anything if it grows past 4.5 GiB |
 | Grafana state | `/local/gadget-monitor/grafana` | small |
 | Backups | `/service/shire/gadget-monitor/backup/{latest,daily}` | 2 × the live database, so under 10 GB |
 
 Today the database is a few MB. Growth comes from the number of distinct
 series, not from depth of history (see README.md, "Adding a check"). The
-**Storage** tile on the dashboard shows both sizes.
+**Storage** tile on the dashboard shows both sizes, and the **Monitoring
+storage** dashboard shows the database against the `/local` partition, with
+a projection of when it would fill (README.md, "Monitoring storage").
 
 ## Backups
 

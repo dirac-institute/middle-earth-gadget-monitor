@@ -31,7 +31,8 @@ There is no test suite. Test against the real thing:
   listed there (Prometheus text, bounded labels, cheap, exit 0).
 - **Dashboards:** edit the generator, never the JSON, then regenerate:
   `cd grafana && python3 gen_hosts_overview.py > dashboards/hosts-overview.json`
-  (likewise `gen_websites.py > dashboards/websites.json` and
+  (likewise `gen_websites.py > dashboards/websites.json`,
+  `gen_storage.py > dashboards/storage.json` and
   `gen_users.py > dashboards-admin/users.json`). Deploy, then check the
   panels: `tools/panel_data.py <uid>` prints what each panel would draw (as
   text, cheap), and `tools/screenshot.sh` shows how it looks, when layout or
@@ -68,7 +69,7 @@ Say in the PR which parts were tested live and which weren't.
   why, not what.
 - New checks: follow the rules in README.md, add the check to the "Current
   checks" table, and add panels via the generator. Watch the series count
-  (size budget in PLAN.md): every label combination is stored for 100 days.
+  (size budget in PLAN.md): every label combination is stored for a year.
 - Keep docs in step with the code (README, DEPLOY, PLAN status).
 - Commit messages: a one-line subject saying what changed, then a short body
   saying how and why (see `git log`).
