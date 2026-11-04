@@ -47,8 +47,8 @@ whose password is on shire (see `SECRETS.md`).
   (`/local/gadget-monitor`) for one year (see PLAN.md, "Retention").
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
-- **Grafana** has provisioned "Hosts overview", "Websites" and "Gadget
-  metrics storage" dashboards.
+- **Grafana** has provisioned "Hosts overview", "Websites", "Postgres" and
+  "Gadget metrics storage" dashboards.
 
 ## Adding a check
 
@@ -249,6 +249,43 @@ page arrives within 15 s. For each site:
 
 Each site is about 16 series, sampled every minute: roughly 8.4 million
 samples (about 10 MB) per site over a year.
+
+## PostgreSQL servers
+
+The collector also probes each PostgreSQL server in `config/postgres.toml`
+from this VM every minute. The servers are VMs deployed from
+[middle-earth-postgres](https://github.com/dirac-institute/middle-earth-postgres),
+which runs a metrics endpoint (`pg-monitor`, port 9187) that does the
+database-side work: it queries PostgreSQL and the backup repository in the
+background and serves the latest results, so the collector needs no database
+credentials. To watch another server, add it to the config and rebuild the
+collector; the **Postgres** dashboard picks it up with no change.
+
+Each probe does three things in parallel, each with a 15 s timeout:
+
+| Metric | Meaning |
+|---|---|
+| `gadget_postgres_vm_up{server}` | 1 if the VM answers on its SSH port (a refused connection counts: the VM answered) |
+| `gadget_postgres_port_up{server}` | 1 if a TCP connection to PostgreSQL's port succeeds from this VM |
+| `gadget_postgres_connect_seconds{server}` | How long that connection took |
+| `gadget_postgres_exporter_up{server}` | 1 if the metrics endpoint answered 200 |
+| `gadget_postgres_exporter_status{server,status}` | 1 for this probe's outcome: ok, http_error, timeout, connect_error or error |
+| `gadget_postgres_scrape_seconds{server}` | How long the endpoint took to answer |
+| `gadget_postgres_lines_{emitted,dropped}{server}` | Lines imported from the endpoint, and lines dropped |
+
+Then everything the endpoint serves (`pg_*`, `pgbackrest_*`, `pgmon_*`; see
+`MONITORING.md` in middle-earth-postgres) is imported with a `server` label.
+Imported lines follow the check rules: malformed lines, lines that set
+`server`, `host` or `check`, names outside the allowed prefixes, and anything
+past 1,000 lines are dropped and counted. A server may send its own
+namespaced metrics (from `monitor/custom/` in its repo) if their prefix is
+listed under `prefixes` for it in the config.
+
+`pg_up` (from the endpoint) says whether PostgreSQL itself could be queried;
+it is only known while the endpoint answers.
+
+A server with three databases is about 110 series, sampled every minute:
+roughly 160,000 samples (a little over 200 KB) a day per server.
 
 ## Collector metrics
 
