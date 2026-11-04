@@ -22,7 +22,9 @@ services:
     command:
       - -storageDataPath=/storage
       - -httpListenAddr=:8428
-      - -retentionPeriod=100d
+      # One year, as UW's records schedule asks of system usage monitoring
+      # (see PLAN.md, "Retention").
+      - -retentionPeriod=1y
       # Bound the number of distinct series so a misbehaving check cannot grow
       # the database without limit (see PLAN.md, size budget).
       - -storage.maxHourlySeries=20000
@@ -82,6 +84,9 @@ services:
       # Read once at startup and copied to /dev/shm (tmpfs) so reconnects never
       # touch the hard-mounted NFS share.
       - "${GADGET_SSH_KEY}:/run/secrets/ssh-key:ro"
+      # Only for the free space on the partition holding the database
+      # (storage probe); nothing is read from it.
+      - "${GADGET_LOCAL_DIR}:/srv/local:ro"
     restart: unless-stopped
     labels:
       idac.service: gadget-monitor
