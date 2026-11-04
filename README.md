@@ -282,7 +282,12 @@ namespaced metrics (from `monitor/custom/` in its repo) if their prefix is
 listed under `prefixes` for it in the config.
 
 `pg_up` (from the endpoint) says whether PostgreSQL itself could be queried;
-it is only known while the endpoint answers.
+it is only known while the endpoint answers. The endpoint collects every
+60 s and serves its latest result, so `pg_up` (and every `pg_*` value) can lag
+by up to a minute: when PostgreSQL stops, `gadget_postgres_port_up` drops on
+the next probe and `pg_up` one probe later. In a new server's first minutes the rate panels
+read high, as on Gadget metrics storage: VictoriaMetrics counts each
+counter's first sample as an increase from zero.
 
 A server with three databases is about 110 series, sampled every minute:
 roughly 160,000 samples (a little over 200 KB) a day per server.

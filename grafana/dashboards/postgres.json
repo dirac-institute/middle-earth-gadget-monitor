@@ -741,7 +741,7 @@
     {
       "id": 10,
       "type": "stat",
-      "title": "Last passing restore test",
+      "title": "Restore test passed",
       "description": "Time since a test restore last passed. They run monthly.",
       "datasource": {
         "type": "prometheus",
@@ -862,7 +862,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -921,7 +921,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -979,7 +979,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1048,7 +1048,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1106,7 +1106,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1164,7 +1164,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1233,8 +1233,9 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
-            "axisSoftMin": 0
+            "spanNulls": 90000,
+            "axisSoftMin": 0,
+            "axisSoftMax": 60
           }
         },
         "overrides": []
@@ -1303,7 +1304,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1374,7 +1375,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1396,8 +1397,8 @@
     {
       "id": 22,
       "type": "timeseries",
-      "title": "Data disk",
-      "description": "The /data partition: used and total. pg_wal is the WAL kept on disk; it grows if archiving to the backup repository falls behind.",
+      "title": "Data disk used",
+      "description": "Space used on the /data partition (left axis; 'Data disk free' above has the share left), and how much of it is WAL in pg_wal (right axis), which grows if archiving to the backup repository falls behind.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1425,20 +1426,9 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (server) (pg_data_disk_size_bytes{server=~\"$server\"})",
-          "legendFormat": "{{server}} size",
-          "refId": "B",
-          "range": true,
-          "instant": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
           "expr": "max by (server) (pg_wal_directory_bytes{server=~\"$server\"})",
           "legendFormat": "{{server}} WAL (pg_wal)",
-          "refId": "C",
+          "refId": "B",
           "range": true,
           "instant": false
         }
@@ -1454,11 +1444,24 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*WAL \\(pg_wal\\)"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -1512,7 +1515,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1583,7 +1586,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1676,7 +1679,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1734,7 +1737,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1792,7 +1795,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1862,7 +1865,7 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1897,8 +1900,8 @@
     {
       "id": 31,
       "type": "timeseries",
-      "title": "Replicas and lag",
-      "description": "As a primary: replicas streaming from this server and the largest replay lag among them. As a replica: time since the last transaction replayed from the primary (this also grows while the primary is idle).",
+      "title": "Replicas and slots",
+      "description": "Replicas streaming from this server, and its replication slots. An inactive slot keeps WAL on disk forever and can fill /data.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1906,7 +1909,7 @@
       "gridPos": {
         "x": 0,
         "y": 82,
-        "w": 12,
+        "w": 8,
         "h": 8
       },
       "targets": [
@@ -1926,20 +1929,9 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (server) (pg_replication_max_lag_seconds{server=~\"$server\"})",
-          "legendFormat": "{{server}} max replay lag (s)",
+          "expr": "sum by (server, active) (pg_replication_slots{server=~\"$server\"})",
+          "legendFormat": "{{server}} slots, active={{active}}",
           "refId": "B",
-          "range": true,
-          "instant": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "max by (server) (pg_replica_replay_delay_seconds{server=~\"$server\"})",
-          "legendFormat": "{{server}} delay as a replica (s)",
-          "refId": "C",
           "range": true,
           "instant": false
         }
@@ -1950,12 +1942,13 @@
           "color": {
             "mode": "palette-classic"
           },
+          "decimals": 0,
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
@@ -1977,16 +1970,16 @@
     {
       "id": 32,
       "type": "timeseries",
-      "title": "Replication slots",
-      "description": "Replication slots, and the most WAL any slot is holding on disk. An inactive slot keeps WAL forever and can fill /data.",
+      "title": "Replication lag",
+      "description": "As a primary: the largest replay lag among its replicas. As a replica: time since the last transaction replayed from the primary (this also grows while the primary is idle).",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
       },
       "gridPos": {
-        "x": 12,
+        "x": 8,
         "y": 82,
-        "w": 12,
+        "w": 8,
         "h": 8
       },
       "targets": [
@@ -1995,8 +1988,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (server, active) (pg_replication_slots{server=~\"$server\"})",
-          "legendFormat": "{{server}} active={{active}}",
+          "expr": "max by (server) (pg_replication_max_lag_seconds{server=~\"$server\"})",
+          "legendFormat": "{{server}} max replay lag",
           "refId": "A",
           "range": true,
           "instant": false
@@ -2006,8 +1999,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (server) (pg_replication_slot_max_retained_bytes{server=~\"$server\"})",
-          "legendFormat": "{{server}} WAL retained",
+          "expr": "max by (server) (pg_replica_replay_delay_seconds{server=~\"$server\"})",
+          "legendFormat": "{{server}} delay as a replica",
           "refId": "B",
           "range": true,
           "instant": false
@@ -2015,7 +2008,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "s",
           "color": {
             "mode": "palette-classic"
           },
@@ -2024,28 +2017,81 @@
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
-            "spanNulls": 600000,
+            "spanNulls": 90000,
+            "axisSoftMin": 0,
+            "axisSoftMax": 60
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "1m"
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "WAL held for replicas",
+      "description": "The most WAL any replication slot is keeping on disk, and how far behind the furthest replica is, in bytes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 82,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max by (server) (pg_replication_slot_max_retained_bytes{server=~\"$server\"})",
+          "legendFormat": "{{server}} by a slot",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max by (server) (pg_replication_max_lag_bytes{server=~\"$server\"})",
+          "legendFormat": "{{server}} replica behind by",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 90000,
             "axisSoftMin": 0
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*WAL retained"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "bytes"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "legend": {

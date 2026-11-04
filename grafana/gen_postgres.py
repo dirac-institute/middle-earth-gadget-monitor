@@ -48,7 +48,8 @@ def row(title, y):
 def ts(title, grid, targets, desc, unit, custom=None, overrides=None, **defaults):
     return panel("timeseries", title, grid, targets, desc, unit, overrides,
                  {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never",
-                  "spanNulls": 600000, "axisSoftMin": 0, **(custom or {})},
+                  # Probes are a minute apart: bridge one late sample, show any real gap.
+                  "spanNulls": 90000, "axisSoftMin": 0, **(custom or {})},
                  {"legend": LEGEND, "tooltip": {"mode": "multi", "sort": "desc"}},
                  color={"mode": "palette-classic"}, **defaults)
 
@@ -133,7 +134,7 @@ panels = [
         f'max by (server) (pgbackrest_restore_test_last_success{{{S}}})',
         "Result of the most recent automated test restore (monthly): restore the latest backup "
         "to scratch space, replay WAL, check every database.", "Pass", "Fail"),
-    age_stat("Last passing restore test", (20, 10, 4, 4),
+    age_stat("Restore test passed", (20, 10, 4, 4),
         f'max by (server) (pgbackrest_restore_test_last_pass_timestamp_seconds{{{S}}})',
         "Time since a test restore last passed. They run monthly.", 35 * DAY, 63 * DAY),
 
@@ -174,7 +175,8 @@ panels = [
             (f'max by (server) (pg_longest_query_seconds{{{S}}})', "{{server}} statement"),
             (f'max by (server) (pg_oldest_transaction_seconds{{{S}}})', "{{server}} transaction")),
         "Age of the longest-running active statement and of the oldest open transaction, at "
-        "each sample. A transaction left open for hours holds back vacuum.", "s"),
+        "each sample. A transaction left open for hours holds back vacuum.", "s",
+        {"axisSoftMax": 60}),
     ts("Waiting on locks, deadlocks", (12, 39, 12, 8),
         targets(
             (f'max by (server) (pg_waiting_on_lock{{{S}}})', "{{server}} waiting on a lock"),
@@ -186,13 +188,15 @@ panels = [
     ts("Database size", (0, 48, 12, 8),
         [target(f'max by (server, datname) (pg_database_size_bytes{{{D}}})', "{{server}} {{datname}}")],
         "Size on disk of each database (tables, indexes, TOAST).", "bytes"),
-    ts("Data disk", (12, 48, 12, 8),
+    ts("Data disk used", (12, 48, 12, 8),
         targets(
             (f'max by (server) (pg_data_disk_size_bytes{{{S}}} - pg_data_disk_free_bytes{{{S}}})', "{{server}} used"),
-            (f'max by (server) (pg_data_disk_size_bytes{{{S}}})', "{{server}} size"),
             (f'max by (server) (pg_wal_directory_bytes{{{S}}})', "{{server}} WAL (pg_wal)")),
-        "The /data partition: used and total. pg_wal is the WAL kept on disk; it grows if "
-        "archiving to the backup repository falls behind.", "bytes"),
+        "Space used on the /data partition (left axis; 'Data disk free' above has the share "
+        "left), and how much of it is WAL in pg_wal (right axis), which grows if archiving to "
+        "the backup repository falls behind.", "bytes",
+        overrides=[{"matcher": {"id": "byRegexp", "options": ".*WAL \\(pg_wal\\)"},
+                    "properties": [{"id": "custom.axisPlacement", "value": "right"}]}]),
     ts("WAL written per hour", (0, 56, 12, 8),
         [target(f'sum by (server) (rate(pg_wal_bytes_total{{{S}}}{R})) * 3600', "{{server}}")],
         "Write-ahead log generated. All of it is archived to the backup repository, so this "
@@ -229,23 +233,25 @@ panels = [
         "before the backup repository exists, are expected.", "short", decimals=0),
 
     row("Replication", 81),
-    ts("Replicas and lag", (0, 82, 12, 8),
+    ts("Replicas and slots", (0, 82, 8, 8),
         targets(
             (f'max by (server) (pg_replication_clients{{{S}}})', "{{server}} replicas connected"),
-            (f'max by (server) (pg_replication_max_lag_seconds{{{S}}})', "{{server}} max replay lag (s)"),
-            (f'max by (server) (pg_replica_replay_delay_seconds{{{S}}})', "{{server}} delay as a replica (s)")),
-        "As a primary: replicas streaming from this server and the largest replay lag among "
-        "them. As a replica: time since the last transaction replayed from the primary (this "
-        "also grows while the primary is idle).", "short"),
-    ts("Replication slots", (12, 82, 12, 8),
+            (f'sum by (server, active) (pg_replication_slots{{{S}}})', "{{server}} slots, active={{active}}")),
+        "Replicas streaming from this server, and its replication slots. An inactive slot "
+        "keeps WAL on disk forever and can fill /data.", "short", decimals=0),
+    ts("Replication lag", (8, 82, 8, 8),
         targets(
-            (f'sum by (server, active) (pg_replication_slots{{{S}}})', "{{server}} active={{active}}"),
-            (f'max by (server) (pg_replication_slot_max_retained_bytes{{{S}}})', "{{server}} WAL retained")),
-        "Replication slots, and the most WAL any slot is holding on disk. An inactive slot "
-        "keeps WAL forever and can fill /data.", "short",
-        overrides=[{"matcher": {"id": "byRegexp", "options": ".*WAL retained"},
-                    "properties": [{"id": "unit", "value": "bytes"},
-                                   {"id": "custom.axisPlacement", "value": "right"}]}]),
+            (f'max by (server) (pg_replication_max_lag_seconds{{{S}}})', "{{server}} max replay lag"),
+            (f'max by (server) (pg_replica_replay_delay_seconds{{{S}}})', "{{server}} delay as a replica")),
+        "As a primary: the largest replay lag among its replicas. As a replica: time since the "
+        "last transaction replayed from the primary (this also grows while the primary is idle).",
+        "s", {"axisSoftMax": 60}),
+    ts("WAL held for replicas", (16, 82, 8, 8),
+        targets(
+            (f'max by (server) (pg_replication_slot_max_retained_bytes{{{S}}})', "{{server}} by a slot"),
+            (f'max by (server) (pg_replication_max_lag_bytes{{{S}}})', "{{server}} replica behind by")),
+        "The most WAL any replication slot is keeping on disk, and how far behind the furthest "
+        "replica is, in bytes.", "bytes"),
 ]
 
 dash = {
