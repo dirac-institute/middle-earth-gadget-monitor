@@ -1340,7 +1340,7 @@
       "id": 21,
       "type": "timeseries",
       "title": "Database size",
-      "description": "Size on disk of each database (tables, indexes, TOAST).",
+      "description": "Size on disk of each database (tables, indexes, TOAST). Updated every 5 minutes.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1621,8 +1621,8 @@
     {
       "id": 26,
       "type": "timeseries",
-      "title": "Backup repository size",
-      "description": "Everything in the pgBackRest repository on shire (retained backups plus archived WAL), next to the total size of the databases. Updated every 5 minutes.",
+      "title": "Backup size",
+      "description": "All retained backups in the pgBackRest repository on shire (compressed), next to the total size of the databases. Archived WAL, also kept in the repository, is not measured: that would mean walking the repository on NFS. Updated every 5 minutes.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1639,20 +1639,9 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (server) (pgbackrest_repo_bytes{server=~\"$server\"})",
-          "legendFormat": "{{server}} repository",
-          "refId": "A",
-          "range": true,
-          "instant": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
           "expr": "max by (server) (pgbackrest_backups_repo_bytes{server=~\"$server\"})",
-          "legendFormat": "{{server}} backups (without WAL)",
-          "refId": "B",
+          "legendFormat": "{{server}} backups",
+          "refId": "A",
           "range": true,
           "instant": false
         },
@@ -1663,7 +1652,7 @@
           },
           "expr": "sum by (server) (pg_database_size_bytes{server=~\"$server\"})",
           "legendFormat": "{{server}} databases",
-          "refId": "C",
+          "refId": "B",
           "range": true,
           "instant": false
         }

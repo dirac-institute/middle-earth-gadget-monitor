@@ -187,7 +187,7 @@ panels = [
     row("Storage", 47),
     ts("Database size", (0, 48, 12, 8),
         [target(f'max by (server, datname) (pg_database_size_bytes{{{D}}})', "{{server}} {{datname}}")],
-        "Size on disk of each database (tables, indexes, TOAST).", "bytes"),
+        "Size on disk of each database (tables, indexes, TOAST). Updated every 5 minutes.", "bytes"),
     ts("Data disk used", (12, 48, 12, 8),
         targets(
             (f'max by (server) (pg_data_disk_size_bytes{{{S}}} - pg_data_disk_free_bytes{{{S}}})', "{{server}} used"),
@@ -210,13 +210,14 @@ panels = [
                                                   {"color": CRIT, "value": 1_000_000_000}]}),
 
     row("Backups", 64),
-    ts("Backup repository size", (0, 65, 12, 8),
+    ts("Backup size", (0, 65, 12, 8),
         targets(
-            (f'max by (server) (pgbackrest_repo_bytes{{{S}}})', "{{server}} repository"),
-            (f'max by (server) (pgbackrest_backups_repo_bytes{{{S}}})', "{{server}} backups (without WAL)"),
+            (f'max by (server) (pgbackrest_backups_repo_bytes{{{S}}})', "{{server}} backups"),
             (f'sum by (server) (pg_database_size_bytes{{{S}}})', "{{server}} databases")),
-        "Everything in the pgBackRest repository on shire (retained backups plus archived WAL), "
-        "next to the total size of the databases. Updated every 5 minutes.", "bytes"),
+        "All retained backups in the pgBackRest repository on shire (compressed), next to the "
+        "total size of the databases. Archived WAL, also kept in the repository, is not "
+        "measured: that would mean walking the repository on NFS. Updated every 5 minutes.",
+        "bytes"),
     ts("Size of the last backup", (12, 65, 12, 8),
         [target(f'max by (server, type) (pgbackrest_last_backup_repo_bytes{{{S}}})', "{{server}} {{type}}")],
         "What the most recent backup of each type added to the repository, compressed. "
