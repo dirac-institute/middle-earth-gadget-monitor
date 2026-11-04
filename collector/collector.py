@@ -7,6 +7,7 @@ kind of probe lives in its own module:
               per host, and that session's health metrics
   ssh_login   times a fresh interactive SSH login to each host
   websites    fetches each URL in config/websites.toml from this VM
+  storage     the size of the metrics database and the disk it lives on
 
 This module holds what they share: the VictoriaMetrics writer, the SSH key and
 ssh client arguments, and main(), which starts them all.
@@ -109,6 +110,7 @@ async def install_key():
 
 async def main():
     # Imported here, not at the top: they import from this module.
+    import metrics_storage
     import ssh_checks
     import ssh_login
     import websites
@@ -126,6 +128,7 @@ async def main():
     tasks = [asyncio.create_task(writer.run())]
     # Websites don't need the SSH key; start them before waiting on shire for it.
     tasks += [asyncio.create_task(s.probe_loop()) for s in sites]
+    tasks.append(asyncio.create_task(metrics_storage.metrics_storage_loop(writer)))
     await install_key()
     for h in hosts:
         for loop in (h.connection_loop, h.ping_loop, h.status_loop, h.schedule_loop):

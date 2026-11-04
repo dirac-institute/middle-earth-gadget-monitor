@@ -38,8 +38,8 @@ Where the build differs from the original plan:
   minute), and the `# hosts:` check header that limits a check to some hosts.
 - **Added after the plan: per-user usage** (`checks/users.sh`,
   `checks/users_gpu.sh`). It breaks the "no usernames as labels" rule on
-  purpose: the user population bounds the series count (about 1,000 over 100
-  days). Thresholds for "active" are applied at query time
+  purpose: the user population bounds the series count (one set of series
+  per account that logs in, about 1,000). Thresholds for "active" are applied at query time
   (`grafana/user_usage.py`). Per-user tables are on an admin-only dashboard;
   the public dashboard shows only daily and weekly counts.
 - **Added after the plan: website probes** (#3). The collector fetches each
@@ -49,6 +49,11 @@ Where the build differs from the original plan:
   targets: they aren't served from arnor or gondor, and the VM needs no SSH
   session to reach them. The VM is on the UW network, so this doesn't prove a
   site is reachable from off campus.
+- **Retention raised from 100 days to one year** (#20), to match UW's
+  records schedule (see "Retention" below). The collector now also probes
+  the database's own size and the free space on `/local`, and a **Gadget metrics
+  storage** dashboard projects when the disk would fill or the size the
+  database levels off at.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 
@@ -298,10 +303,11 @@ A missing data point then always comes with a reason you can see.
 
 ### Size budget (10 GB hard limit on shire)
 
-- **Retention:** `-retentionPeriod=100d`.
+- **Retention:** `-retentionPeriod=1y` (see "Retention" below).
 - **Expected usage:** about 35 series per host today, rising to a few
-  thousand with 100 metrics. Over 100 days that is under 100 MB at around
-  1 byte per sample. Depth of history isn't the risk; the number of distinct
+  thousand with 100 metrics. Measured in November 2026: about 260,000
+  samples a day at 1.4 bytes each (index included), so a year plus a month
+  comes to about 150 MB. Depth of history isn't the risk; the number of distinct
   series is.
 - **Series caps:** `-storage.maxHourlySeries=20000` and
   `-storage.maxDailySeries=50000`, so a check that misbehaves can't grow the
@@ -312,6 +318,23 @@ A missing data point then always comes with a reason you can see.
   before each run and **refuses to copy anything to shire** if the database
   is over 4.5 GB. It writes `gadget_storage_bytes{location}` and
   `gadget_backup_refused_oversize` metrics, which show on a dashboard.
+
+### Retention
+
+The metrics are kept for one year. That matches the UW records schedule for
+[audit trails and system usage monitoring](https://finance.uw.edu/recmgt/recordseries/audit-trails-and-system-usage-monitoring)
+("log-in records, security logs, and system usage files"): retain 1 year
+after the date of activity, then delete. The per-user series
+(`checks/users*.sh`) are the clearest case of system usage records here.
+
+VictoriaMetrics stores data in monthly partitions and deletes a partition
+once all of it is past the retention period, so data can stay on disk up to
+about a month past one year. The backups on shire are copies of the live
+database (incremental `vmbackup` of `latest`, and `daily`), so they expire
+along with it, at most a day later.
+
+The **Gadget metrics storage** dashboard (README.md) projects whether a year of
+data fits on `/local`.
 
 ### Backup (the `backup` container)
 
@@ -381,7 +404,7 @@ from a corrupt local database: `podman compose down`, move
 service.conf             astro-gadget identity (done)
 init.sh                  + /local dirs, restore logic, grafana secret, --fresh / --restore-from
 compose.yaml             victoriametrics, grafana, collector, backup
-collector/               Dockerfile, collector.py + ssh_checks.py, ssh_login.py, websites.py
+collector/               Dockerfile, collector.py + ssh_checks.py, ssh_login.py, websites.py, metrics_storage.py
 agent/agent.py           remote agent (stdlib, py3.9)
 checks/                  cpu.sh, load.sh, memory.sh
 config/hosts.toml        arnor, gondor: hostname, user, enabled checks
