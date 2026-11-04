@@ -56,7 +56,7 @@ def panel(kind, title, grid, targets, desc, unit=None, overrides=None, custom=No
 
 def ts(title, grid, targets, desc, unit, overrides=None, log=False, **defaults):
     return panel("timeseries", title, grid, targets, desc, unit, overrides,
-                 {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never",
+                 {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "auto",
                   "spanNulls": 900000,
                   **({"scaleDistribution": {"type": "log", "log": 10}} if log else {"axisSoftMin": 0})},
                  {"legend": LEGEND, "tooltip": {"mode": "multi", "sort": "desc"}},
@@ -130,7 +130,7 @@ panels = [
         "into bigger, better-compressed parts, so the projection tends to err high.",
         "short",
         [{"matcher": {"id": "byName", "options": "Bytes per stored sample"},
-          "properties": [{"id": "unit", "value": "decbytes"}, {"id": "decimals", "value": 2},
+          "properties": [{"id": "unit", "value": "suffix: B"}, {"id": "decimals", "value": 2},
                          {"id": "custom.axisPlacement", "value": "right"}]}]),
 ]
 

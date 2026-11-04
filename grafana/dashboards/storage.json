@@ -421,7 +421,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 0,
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": 900000,
             "scaleDistribution": {
               "type": "log",
@@ -569,7 +569,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 0,
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": 900000,
             "scaleDistribution": {
               "type": "log",
@@ -672,7 +672,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 0,
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": 900000,
             "axisSoftMin": 0
           }
@@ -686,7 +686,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "decbytes"
+                "value": "suffix: B"
               },
               {
                 "id": "decimals",
