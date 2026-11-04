@@ -9,15 +9,16 @@ separate clone of this repo (`/root/gadget-nightly/repo`). The session:
    test it;
 3. pushes a branch, opens a PR, and comments on the issue.
 
-The session is stopped after 10 idle minutes or 5 hours. The wrapper then
-redeploys from `/root/middle-earth-gadget-monitor` if the running containers
-changed, so the live stack ends up as it was. Expect the odd metrics blip
-between 1 and 6 AM.
+The session is stopped after 10 idle minutes. The wrapper then redeploys
+from `/root/middle-earth-gadget-monitor` if the running containers changed,
+so the live stack ends up as it was. If the session says it got something
+done, the wrapper starts another one (see "More than one session a night"),
+up to 5 hours in all. Expect the odd metrics blip between 1 and 6 AM.
 
 | File | What it is |
 |---|---|
-| `run.sh` | The cron wrapper: clone reset, session start, idle/time limit, restore |
-| `usage.py` | Plan usage snapshots and the per-run report (see "Plan usage") |
+| `run.sh` | The cron wrapper: clone reset, sessions, idle/time limit, restore |
+| `usage.py` | Plan usage snapshots, the per-session report, and the room check (see "Plan usage") |
 | `prompt.md` | The nightly task given to Claude |
 | `settings.json` | Deny rules: no merge, close, delete, push to main, or edits to the live checkout |
 | `crontab` | The cron line (not installed automatically) |
@@ -28,13 +29,14 @@ you've merged and pulled there ever run.
 
 ## Watching a session
 
-Sessions are named `nightly-<date>`, e.g. `nightly-2026-10-31`.
+Sessions are named `nightly-<date>-<n>`, e.g. `nightly-2026-11-05-1` for the
+night's first. (Before November 2026 there was one a night, `nightly-<date>`.)
 
 ```bash
-claude agents                       # list sessions; pick one to open it
-claude agents --json --all          # the same as JSON, including finished ones
-claude attach nightly-2026-10-31    # open one (part of the name is enough)
-claude logs nightly-2026-10-31      # print recent output without attaching
+claude agents                         # list sessions; pick one to open it
+claude agents --json --all            # the same as JSON, including finished ones
+claude attach nightly-2026-11-05-1    # open one
+claude logs nightly-2026-11-05-1      # print recent output without attaching
 ```
 
 Attaching gives you a normal Claude Code window with full scrollback. You can
@@ -57,32 +59,70 @@ those can end or interrupt the session itself.
 ## Logs
 
 `/root/gadget-nightly/logs/<date>.log` has the wrapper's steps (live stack
-before, session start and stop, restore) and Claude's final summary. Logs are
-kept 60 days.
+before, each session's start and stop, restores, why it did or didn't start
+another session) and each session's final summary. Logs are kept 60 days.
+
+## More than one session a night
+
+Each session ends its summary with a line saying how it went (the wording is
+in `prompt.md`, "Finish"):
+
+| Line | Meaning | Another session? |
+|---|---|---|
+| `NIGHTLY_RESULT: worked` | It handled feedback or made progress on an issue | If the rest below allows |
+| `NIGHTLY_RESULT: nothing-to-do` | Nothing was actionable | No |
+| `NIGHTLY_RESULT: blocked` | Something outside the repo stopped it (said in the summary) | No |
+| no line, or the time limit cut it off | | No |
+
+After a `worked` session, `run.sh` starts the next one only if all of these
+hold, and logs which one didn't:
+
+- fewer than 4 sessions (`MAX_SESSIONS`) have run tonight;
+- at least 60 minutes (`NEXT_MIN_LEFT`) of the 5-hour limit are left;
+- `usage.py room` says the plan has room (next section);
+- the live stack came back up after the redeploy.
+
+The next session gets a freshly reset clone at `origin/main`. It sees the
+earlier sessions' PRs and comments the same way it sees older ones, so it
+moves on to other work.
 
 ## Plan usage
 
-`run.sh` records how much of the Claude plan each run uses, so we can tell
-whether there is room for more than one session a night. `usage.py` reads the
-same numbers `/usage` shows in Claude Code (percent used of the 5-hour window
-and of the week) and appends a snapshot to `/root/gadget-nightly/usage.jsonl`
-before the session starts, every 10 minutes while it runs, and after it
+`run.sh` records how much of the Claude plan each session uses, and uses
+that to decide whether there is room for another. `usage.py` reads the same
+numbers `/usage` shows in Claude Code (percent used of the 5-hour window and
+of the week) and appends a snapshot to `/root/gadget-nightly/usage.jsonl`
+before each session starts, every 10 minutes while it runs, and after it
 stops. The usage is for the whole account, so anyone else using it during the
 night shows up too.
 
 Each log ends with a per-run table; to see it any time:
 
 ```bash
-python3 /root/middle-earth-gadget-monitor/nightly/usage.py report      # last 14 runs
+python3 /root/middle-earth-gadget-monitor/nightly/usage.py report      # last 14 sessions
 python3 /root/middle-earth-gadget-monitor/nightly/usage.py report 60
+python3 /root/middle-earth-gadget-monitor/nightly/usage.py room        # would another fit now?
 ```
 
-`used` is percentage points of 5-hour window the run took, summed across a
-window reset if the run spans one; `week` is the rise in the weekly figure.
-The 1 AM run usually opens a fresh window, which resets 5 hours later, around
-the time the run's limit is reached. If the OAuth token has expired by 1 AM,
-the start snapshot fails and the report counts from the first sample, a few
-minutes into the run (marked "no start snapshot").
+There is a row per session: each `start` snapshot begins a new one, so
+same-name runs started by hand are counted separately. `used` is percentage
+points of 5-hour window the session took, summed across a window reset if
+the session spans one; `week` is the rise in the weekly figure. The 1 AM run
+usually opens a fresh window, which resets 5 hours later, around the time the
+night's limit is reached. If the OAuth token has expired by 1 AM, the start
+snapshot fails and the report counts from the first sample, a few minutes
+into the session (marked "no start snapshot").
+
+`room` takes the newest snapshot (the `end` of the session just finished) and
+answers yes only if both of these fit:
+
+- 5-hour window: now + the most any of the last 14 sessions used + 15 points;
+- week: now + the most any of them added + 30 points.
+
+The week's buffer is large on purpose: the night shouldn't eat into what the
+maintainer needs for the rest of the week. Both buffers can be changed with
+`NIGHTLY_FIVE_HOUR_BUFFER` and `NIGHTLY_WEEK_BUFFER`. If the newest snapshot
+failed, the answer is no.
 
 The endpoint is the one Claude Code calls for `/usage`, not a documented API.
 A failed snapshot is logged and recorded as an error; it never stops a run.
@@ -113,6 +153,9 @@ Then install the cron line:
 crontab -l | cat - /root/middle-earth-gadget-monitor/nightly/crontab | crontab -
 ```
 
-To pause the nightly runs, remove the line with `crontab -e`. To end a run
-early, `claude stop <id>` (the id is in `claude agents` and the log). The
-wrapper notices within 10 minutes and restores the live stack.
+To pause the nightly runs, remove the line with `crontab -e`. To end a
+session early, `claude stop <id>` (the id is in `claude agents` and the log).
+The wrapper notices within a minute and restores the live stack. A session
+stopped before its summary has no `NIGHTLY_RESULT` line, so no other session
+starts after it. To end the whole night, also remove the line from cron, or
+stop each new session as it appears.
