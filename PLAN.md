@@ -61,6 +61,15 @@ Where the build differs from the original plan:
   **Postgres** dashboard. The database-side work is done on the database VM so
   the monitor holds no database credentials; the collector filters what it
   imports by name prefix and line count to protect the series budget.
+- **Added after the plan: VM resources** (#19). Each service VM runs the
+  machine monitor from `monitoring/` (CPU, memory, disks and load, served on
+  port 9110), and the collector polls every VM in `config/machines.toml`
+  every minute, importing with a `machine` label like the PostgreSQL probe,
+  onto a **VM resources** dashboard. A pull model, so the monitored VMs need
+  nothing from this one. The monitor is a stdlib Python script rather than
+  node_exporter, to serve a fixed ~35 series per VM. Its published port
+  bypasses firewalld (podman DNAT), so no VM needs a firewall change, at the
+  cost of the numbers being readable by anyone who can reach the VM.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 
@@ -128,7 +137,7 @@ Where the build differs from the original plan:
                               (python3, shipped over stdin)
 ```
 
-Four containers, all running as uid 1734450:
+Five containers, all running as uid 1734450:
 
 | Service | Image | Role |
 |---|---|---|
@@ -136,6 +145,7 @@ Four containers, all running as uid 1734450:
 | `grafana` | official `grafana/grafana-oss`, pinned | Frontend. Published on `127.0.0.1:8080` |
 | `collector` | built from this repo (Python + OpenSSH client) | Schedules checks, manages the SSH connections, writes samples |
 | `backup` | built from this repo (vmbackup/vmrestore binaries + sqlite3) | Hourly and daily backups to shire, size watchdog |
+| `monitoring` | built from `monitoring/` (Python) | This VM's CPU, memory and disks on port 9110, polled by the collector like any other VM (added for #19) |
 
 Apache and the hello-world Flask app are removed. Grafana serves HTTP itself,
 and the VM's reverse proxy still handles TLS.
@@ -315,7 +325,8 @@ A missing data point then always comes with a reason you can see.
   thousand with 100 metrics. Measured in November 2026: about 260,000
   samples a day at 1.4 bytes each (index included), so a year plus a month
   comes to about 150 MB. Depth of history isn't the risk; the number of distinct
-  series is.
+  series is. Each VM in `config/machines.toml` adds 46 series sampled every
+  minute, about 35 MB a year.
 - **Series caps:** `-storage.maxHourlySeries=20000` and
   `-storage.maxDailySeries=50000`, so a check that misbehaves can't grow the
   database without limit.

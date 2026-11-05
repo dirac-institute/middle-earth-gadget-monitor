@@ -22,6 +22,7 @@ whose password is on shire (see `SECRETS.md`).
 | `SECRETS.md` | The SSH key and Grafana password on `/service/shire`, and who can read them |
 | `PLAN.md` | Design: why the pieces are shaped the way they are, and the size budget |
 | `CLAUDE.md` | Notes for coding agents: testing against the live stack, what never to deploy live, GitHub rules |
+| `monitoring/README.md` | The machine monitor container (a VM's CPU, memory and disks), and how to add it to another service's repo |
 | `nightly/README.md` | Nightly agent that works open issues into PRs, one session per issue: setup, watching a session (`claude attach`), logs |
 
 ## How it works
@@ -47,8 +48,8 @@ whose password is on shire (see `SECRETS.md`).
   (`/local/gadget-monitor`) for one year (see PLAN.md, "Retention").
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
-- **Grafana** has provisioned "Hosts overview", "Websites", "Postgres" and
-  "Gadget metrics storage" dashboards.
+- **Grafana** has provisioned "Hosts overview", "Websites", "Postgres",
+  "VM resources" and "Gadget metrics storage" dashboards.
 
 ## Adding a check
 
@@ -291,6 +292,33 @@ counter's first sample as an increase from zero.
 
 A server with three databases is about 110 series, sampled every minute:
 roughly 160,000 samples (a little over 200 KB) a day per server.
+
+## VM resources
+
+The collector also polls the CPU, memory, disks and load of each VM in
+`config/machines.toml`, starting with this one, every minute. Each VM runs
+the **machine monitor** from `monitoring/`: a small container, the same on
+every VM, that serves those numbers on port 9110. `monitoring/` is
+self-contained so it can be copied into any service repo built from
+[middle-earth-service-example](https://github.com/dirac-institute/middle-earth-service-example);
+`monitoring/README.md` has the steps and the list of metrics (`machine_*`).
+Once a VM serves them, add it to the config and rebuild the collector; the
+**VM resources** dashboard picks it up with no change.
+
+Everything the endpoint serves is imported with a `machine` label, filtered
+the way PostgreSQL endpoints are: malformed lines, lines that set `machine`,
+`host` or `check`, names not starting with `machine_`, and anything past 500
+lines are dropped and counted. The collector's own metrics per VM:
+
+| Metric | Meaning |
+|---|---|
+| `gadget_machine_up{machine}` | 1 if the endpoint answered 200 |
+| `gadget_machine_status{machine,status}` | 1 for this poll's outcome: ok, http_error, timeout, connect_error or error |
+| `gadget_machine_scrape_seconds{machine}` | How long the endpoint took to answer |
+| `gadget_machine_lines_{emitted,dropped}{machine}` | Lines imported from the endpoint, and lines dropped |
+
+A VM with two filesystems and one disk is 46 series, sampled every minute:
+about 24 million samples (roughly 35 MB) a year per VM.
 
 ## Collector metrics
 
