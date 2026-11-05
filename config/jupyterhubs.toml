@@ -1,0 +1,22 @@
+# JupyterHubs probed by the collector, from this VM (not from the hubs' hosts).
+#
+# Every minute the collector GETs <url>hub/api, which needs no token, and
+# records whether the hub answered with its version and how long it took
+# (see README.md, "JupyterHubs"). The JupyterHub dashboard picks up a new hub
+# with no change.
+#
+# `name` becomes the `hub` label: keep it stable, a renamed hub starts new
+# series. For a hub on a monitored host, use the host's name from hosts.toml,
+# so the dashboard can show the host's JupyterHub processes next to it.
+# `url` is the hub's base URL (JupyterHub's base_url), where users go.
+
+interval = 60   # seconds between probes of each hub
+timeout = 15    # seconds for the whole request, redirects included
+
+[[hub]]
+name = "arnor"
+url = "https://arnor.astro.washington.edu/jupyter/"
+
+[[hub]]
+name = "gondor"
+url = "https://gondor.astro.washington.edu/jupyter/"

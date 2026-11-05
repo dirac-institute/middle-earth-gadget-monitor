@@ -28,11 +28,11 @@ class WebsiteFailed(Exception):
         self.status = status
 
 
-def fetch_website(url, timeout):
+def fetch_website(url, timeout, keep_body=False):
     """GET url as a browser would, following redirects, and time each stage.
 
     Blocking; run it in a thread. Returns (status, http_code, stages,
-    cert_expiry, detail). stages maps stage name -> seconds, summed over
+    cert_expiry, detail), plus the final page's body if keep_body. stages maps stage name -> seconds, summed over
     redirects, for every stage that completed:
       dns       name lookup
       connect   TCP connect
@@ -43,7 +43,7 @@ def fetch_website(url, timeout):
     """
     t0 = time.monotonic()
     deadline = t0 + timeout
-    stages, code, cert_expiry = {}, 0, None
+    stages, code, cert_expiry, body = {}, 0, None, []
     ctx = ssl.create_default_context()
 
     def remaining():
@@ -64,6 +64,7 @@ def fetch_website(url, timeout):
         return result
 
     def read_body(resp):
+        body.clear()
         # http.client has already let go of the socket (Connection: close), so
         # each read keeps the timeout set before the request; check the
         # deadline between reads instead.
@@ -74,6 +75,8 @@ def fetch_website(url, timeout):
             if not chunk:
                 break
             n += len(chunk)
+            if keep_body:
+                body.append(chunk)
 
     status, detail = "http_error", ""
     try:
@@ -116,6 +119,8 @@ def fetch_website(url, timeout):
     except WebsiteFailed as e:
         status, detail = e.status, str(e)
     stages["total"] = time.monotonic() - t0
+    if keep_body:
+        return status, code, stages, cert_expiry, detail, b"".join(body)
     return status, code, stages, cert_expiry, detail
 
 
