@@ -47,8 +47,8 @@ whose password is on shire (see `SECRETS.md`).
   (`/local/gadget-monitor`) for one year (see PLAN.md, "Retention").
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
-- **Grafana** has provisioned "Hosts overview", "Websites", "Postgres" and
-  "Gadget metrics storage" dashboards.
+- **Grafana** has provisioned "Hosts overview", "Websites", "Postgres",
+  "Xrootd" and "Gadget metrics storage" dashboards.
 
 ## Adding a check
 
@@ -291,6 +291,31 @@ counter's first sample as an increase from zero.
 
 A server with three databases is about 110 series, sampled every minute:
 roughly 160,000 samples (a little over 200 KB) a day per server.
+
+## xrootd servers
+
+The collector also probes each xrootd server in `config/xrootd.toml` (the
+proxies on rohan1-3) from this VM every minute, from the outside only: it
+talks the xrootd protocol as a client would, as far as login (connect,
+handshake, TLS, login), and stops where the server asks it to authenticate.
+It holds no grid credentials, so it never opens a file or moves data, and it
+can't see what only an authenticated client can (the server's statistics,
+transfers, errors). Each probe leaves one unauthenticated login in the
+server's log. To watch another server, add it to the config and rebuild the
+collector; the **Xrootd** dashboard picks it up with no change.
+
+The host check and the xrootd probe run in parallel, each with a 15 s timeout:
+
+| Metric | Meaning |
+|---|---|
+| `gadget_xrootd_vm_up{server}` | 1 if the host answers on its SSH port (a refused connection counts: the host answered) |
+| `gadget_xrootd_up{server}` | 1 if xrootd answered as far as login (asking for authentication counts) |
+| `gadget_xrootd_status{server,status}` | 1 for this probe's outcome: ok, refused (nothing listening), timeout, connect_error, tls_error, protocol_error (an answer that isn't xrootd's, or a refused login) or error |
+| `gadget_xrootd_seconds{server,stage}` | Time per stage: `connect`, `handshake` (handshake and protocol request), `tls`, `login`, and `total` (also recorded, up to the failure, when a probe fails) |
+| `gadget_xrootd_cert_expiry_timestamp_seconds{server}` | When the certificate xrootd presents for TLS (its host certificate) expires; read without verifying it, since this VM doesn't carry the grid CAs |
+
+Each server is about 15 series, sampled every minute: roughly 7.9 million
+samples (about 10 MB) per server over a year.
 
 ## Collector metrics
 
