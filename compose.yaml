@@ -3,11 +3,13 @@
 #   sudo ./init.sh
 #   podman compose up -d --build
 #
-# Four containers, all running as the service account from service.conf:
+# Five containers, all running as the service account from service.conf:
 #   victoriametrics  time-series database (data on local disk)
 #   grafana          dashboards, published on 127.0.0.1:8080
 #   collector        runs checks on the targets over persistent SSH sessions
 #   backup           hourly/daily backups of local state to /service/shire
+#   monitoring       this VM's CPU, memory and disks, on port 9110
+#                    (monitoring/, the same container every service VM runs)
 #
 # Every variable below comes from .env, written by init.sh from service.conf
 # and the host. There are no defaults; missing values make compose fail.
@@ -105,6 +107,30 @@ services:
     volumes:
       - "${GADGET_LOCAL_DIR}:/data:z"
       - "${GADGET_SHIRE_DIR}/backup:/shire"
+    restart: unless-stopped
+    labels:
+      idac.service: gadget-monitor
+
+  # The machine monitor, as every service VM runs it (see monitoring/README.md);
+  # the collector polls it like any other VM in config/machines.toml.
+  monitoring:
+    build:
+      context: monitoring
+    image: localhost/machine-monitor:latest
+    container_name: gadget-monitor-machine
+    init: true
+    user: "${SVC_UID}:${SVC_GID}"
+    # The VM's filesystems, for their size and free space. Read-only; rslave
+    # so mounts made or removed on the host later show up here too. No
+    # relabeling (:z) of the host's root, ever.
+    volumes:
+      - "/:/host:ro,rslave"
+    # So statting the host's filesystems works on an SELinux-enforcing VM. A
+    # precaution: this VM is permissive, and logged no denials without it.
+    security_opt:
+      - label=disable
+    ports:
+      - "9110:9110"
     restart: unless-stopped
     labels:
       idac.service: gadget-monitor
