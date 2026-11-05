@@ -1,0 +1,36 @@
+# Globus Connect Server nodes probed by the collector, from this VM.
+#
+# Every minute the collector asks each node's GCS Manager for /api/info, which
+# needs no credentials, and records healthy, unhealthy, unreachable or
+# unknown (see README.md, "Globus Connect Server"). The Globus dashboard
+# picks up a new node with no change.
+#
+# `name` becomes the `server` label: keep it stable, a renamed node starts
+# new series.
+#
+# `domain` is the endpoint's Globus-issued domain (ends in data.globus.org or
+# gaccess.io): "Domain" in `globus-connect-server endpoint show`, or the
+# endpoint's overview page in the Globus web app. It resolves to every node
+# of the endpoint, so nodes of one endpoint share it; the probe still
+# connects to each node's own `address`. Without it, the node's Apache only
+# serves its default site, and the probe can say whether the node answers
+# (unknown) or not (unreachable), but not whether Globus is healthy.
+#
+# Optional per server:
+#   port   HTTPS port of the GCS Manager (default 443)
+
+interval = 60   # seconds between probes of each node
+timeout = 15    # seconds for the whole probe
+
+[[server]]
+name = "rohan1"
+address = "rohan1.astro.washington.edu"
+# domain = "<id>.<id>.data.globus.org"
+
+[[server]]
+name = "rohan2"
+address = "rohan2.astro.washington.edu"
+
+[[server]]
+name = "rohan3"
+address = "rohan3.astro.washington.edu"
