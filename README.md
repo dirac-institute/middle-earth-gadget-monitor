@@ -47,8 +47,8 @@ whose password is on shire (see `SECRETS.md`).
   (`/local/gadget-monitor`) for one year (see PLAN.md, "Retention").
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
-- **Grafana** has provisioned "Hosts overview", "Websites", "Postgres" and
-  "Gadget metrics storage" dashboards.
+- **Grafana** has provisioned "Hosts overview", "Websites", "Postgres",
+  "Globus" and "Gadget metrics storage" dashboards.
 
 ## Adding a check
 
@@ -291,6 +291,40 @@ counter's first sample as an increase from zero.
 
 A server with three databases is about 110 series, sampled every minute:
 roughly 160,000 samples (a little over 200 KB) a day per server.
+
+## Globus Connect Server
+
+The collector also asks each Globus Connect Server (GCS v5) node in
+`config/globus.toml` (rohan1-3) whether it is healthy, from this VM every
+minute. A node runs Apache on port 443 in front of the GCS Manager API, whose
+`GET /api/info` needs no credentials and answers `{"code": "success", ...}`
+only while the Manager behind Apache works. Apache serves it only on the
+endpoint's Globus-issued domain (`*.data.globus.org`, or `*.gaccess.io` for
+newer installs), which resolves to every node of the endpoint. So the probe
+connects to each node's own address and sends the domain as TLS SNI and
+`Host`, verifying the certificate against it. Each probe ends in one state:
+
+| State | Meaning |
+|---|---|
+| `healthy` | `/api/info` answered 200 with code `success` |
+| `unhealthy` | The HTTPS port answered, but not that: an error status (a 502 with the Manager down), a certificate that doesn't verify, a hang after connecting, a broken answer |
+| `unreachable` | No answer on the port: refused, timed out, no route, or DNS failure |
+| `unknown` | No `domain` in the config for the node: the port answered, but without the domain there is nothing to ask |
+
+| Metric | Meaning |
+|---|---|
+| `gadget_globus_up{server}` | 1 if healthy |
+| `gadget_globus_state{server,state}` | 1 for this probe's state (above) |
+| `gadget_globus_http_status{server}` | HTTP status of the answer; 0 if there was none |
+| `gadget_globus_seconds{server,stage}` | Time per stage: `connect`, `tls`, `response`, and `total` (also recorded, up to the failure, when a probe fails) |
+| `gadget_globus_cert_expiry_timestamp_seconds{server}` | When the certificate served for the domain expires (only with a domain) |
+| `gadget_globus_manager_info{server,version}` | 1, with the GCS Manager version from `/api/info` (only when healthy; a new series per upgrade) |
+
+The **Globus** dashboard picks up a node added to the config with no change.
+The collector log has the reason for each failed probe. Only the Manager is
+tested, not transfers: GridFTP's data ports (50000-51000) aren't open to
+this VM. Each node is about 12 series, sampled every minute: a little over
+6 million samples (about 8 MB) a year.
 
 ## Collector metrics
 
