@@ -113,7 +113,7 @@ panels = [
                   {"type": "range", "options": {"from": 1, "to": None,
                                                 "result": {"text": "Running", "color": GOOD, "index": 1}}}],
         color={"mode": "thresholds"}, thresholds=RED_GREEN),
-    panel("table", "JupyterHub version", (0, 25, 24, 4),
+    panel("table", "JupyterHub version", (0, 25, 24, 5),
         [{**target(f'max by (hub, version) (last_over_time(gadget_jupyterhub_info{{{S}}}[1h]))',
                    "", instant=True), "format": "table"}],
         "Version each hub reported in the last hour.", None, None, None,
@@ -121,7 +121,7 @@ panels = [
         {"transformations": [{"id": "organize", "options": {
             "excludeByName": {"Time": True, "Value": True},
             "renameByName": {"hub": "Hub", "version": "Version"}}}]}),
-    panel("timeseries", "Response time by stage: $hub", (0, 29, 24, 9),
+    panel("timeseries", "Response time by stage: $hub", (0, 30, 24, 9),
         # =~ even for one hub: Grafana regex-escapes the value, which only matches as a regex.
         [target(f'gadget_jupyterhub_seconds{{hub=~"$hub", stage="{st}"}}', st, chr(ord("A") + i))
          for i, st in enumerate(STAGE_COLORS)],
