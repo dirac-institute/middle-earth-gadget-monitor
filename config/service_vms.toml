@@ -1,11 +1,11 @@
 # VMs whose CPU, memory and disks the collector polls, from this VM.
 #
-# Each VM runs the machine monitor from monitoring/ (see monitoring/README.md
+# Each VM runs the service VM monitor from monitoring/ (see monitoring/README.md
 # for adding it to a service's repo), which serves its numbers on port 9110.
 # Every interval the collector fetches them and imports them with a
-# `machine` label. The VM resources dashboard picks up a new VM with no change.
+# `service_vm` label. The Service VMs dashboard picks up a new VM with no change.
 #
-# `name` becomes the `machine` label: keep it stable, a renamed VM starts new
+# `name` becomes the `service_vm` label: keep it stable, a renamed VM starts new
 # series.
 #
 # Optional per VM:
@@ -15,6 +15,6 @@
 interval = 60   # seconds between polls of each VM
 timeout = 10    # seconds for each poll
 
-[[machine]]
+[[service_vm]]
 name = "gadget"
 address = "gadget.astro.washington.edu"

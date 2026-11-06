@@ -1,10 +1,10 @@
-# Machine monitor
+# Service VM monitor
 
 A small container that reports the CPU, memory, disks and load of the VM it
 runs on, for the gadget monitor
 ([middle-earth-gadget-monitor](https://github.com/dirac-institute/middle-earth-gadget-monitor)).
 It serves Prometheus text at `http://<vm fqdn>:9110/metrics`; the gadget
-monitor polls that every minute and graphs it on its **VM resources**
+monitor polls that every minute and graphs it on its **Service VMs**
 dashboard.
 
 Nothing in this folder is specific to a service. The same folder goes into
@@ -15,26 +15,23 @@ unchanged.
 ## Adding it to a service
 
 1. Copy this folder to the top level of the service's repo, as `monitoring/`.
-2. Add this to the `services:` in its `compose.yaml`. It relies only on
-   `SVC_UID` and `SVC_GID` in `.env`, which every service's `init.sh` writes.
+2. Add this to the `services:` in its `compose.yaml`. The settings
+   themselves are in `monitoring/compose.yaml`, so they stay the same on
+   every VM; they rely only on `SVC_UID` and `SVC_GID` in `.env`, which every
+   service's `init.sh` writes.
 
    ```yaml
      # CPU, memory and disks of this VM, for the gadget monitor (monitoring/README.md).
      monitoring:
-       build:
-         context: monitoring
-       image: localhost/machine-monitor:latest
-       container_name: machine-monitor
-       init: true
-       user: "${SVC_UID}:${SVC_GID}"
-       volumes:
-         - "/:/host:ro,rslave"
-       security_opt:
-         - label=disable
-       ports:
-         - "9110:9110"
-       restart: unless-stopped
+       extends:
+         file: monitoring/compose.yaml
+         service: monitoring
+       build: monitoring
+       container_name: myservice-service-vm
    ```
+
+   Add the service's own `labels:` there too, if its other containers have
+   them.
 
 3. Deploy as usual (`podman compose up -d --build`), then check it answers
    from the VM itself and from another machine:
@@ -43,18 +40,21 @@ unchanged.
    curl -s http://$(hostname -f):9110/metrics | grep -E 'load1 |filesystem_size'
    ```
 
-4. In the gadget monitor's repo, add the VM to `config/machines.toml` and
-   deploy that (see its README, "VM resources"):
+4. In the gadget monitor's repo, add the VM to `config/service_vms.toml` and
+   deploy that (see its README, "Service VMs"):
 
    ```toml
-   [[machine]]
-   name = "myservice"            # becomes the `machine` label; keep it stable
+   [[service_vm]]
+   name = "myservice"            # becomes the `service_vm` label; keep it stable
    address = "myservice.astro.washington.edu"
    ```
 
 That's all: the dashboard lists every VM in the config.
 
 ### What the compose settings are for
+
+These are in `compose.yaml` here.
+
 
 - **`/:/host:ro,rslave`** gives the container the VM's filesystems, read-only,
   so it can report their size and free space. `rslave` makes filesystems
@@ -73,7 +73,10 @@ That's all: the dashboard lists every VM in the config.
   9110/tcp in firewalld for the monitoring VM only.
 - **`user`**: it needs no privileges. It runs as the service account, like
   the service's other containers.
-- **`container_name`**: any name that's unique on the VM.
+- **`build`** and **`container_name`** are in the service's own
+  `compose.yaml`. `build` would belong in `compose.yaml` here, but
+  podman-compose 1.5 gets the path wrong when a build context comes from an
+  `extends`ed file. `container_name` is any name that's unique on the VM.
 
 ## What it reports
 
@@ -84,19 +87,19 @@ describe the whole VM.
 
 | Metric | Meaning |
 |---|---|
-| `machine_cpu_seconds_total{mode}` | CPU time, summed over cores: user, nice, system, idle, iowait, irq, softirq, steal |
-| `machine_cpu_count` | Cores |
-| `machine_load1`, `machine_load5`, `machine_load15` | Load averages |
-| `machine_memory_{total,free,available}_bytes` | RAM; *available* is what can be had without swapping |
-| `machine_swap_{total,free}_bytes` | Swap |
-| `machine_boot_time_seconds` | When the VM booted (Unix time) |
-| `machine_filesystem_{size,avail}_bytes{mountpoint}` | Size of each local filesystem, and the space ordinary users can still use |
-| `machine_filesystem_files{,_avail}{mountpoint}` | Inodes, and inodes still free |
-| `machine_disk_{reads,writes}_total{device}` | Completed I/O requests per physical disk |
-| `machine_disk_{read,written}_bytes_total{device}` | Bytes read and written per physical disk |
-| `machine_disk_io_seconds_total{device}` | Time the disk had requests in flight |
-| `machine_monitor_source_success{source}` | 1 if that group of metrics could be read this time |
-| `machine_monitor_collect_seconds` | How long this response took to put together |
+| `service_vm_cpu_seconds_total{mode}` | CPU time, summed over cores: user, nice, system, idle, iowait, irq, softirq, steal |
+| `service_vm_cpu_count` | Cores |
+| `service_vm_load1`, `service_vm_load5`, `service_vm_load15` | Load averages |
+| `service_vm_memory_{total,free,available}_bytes` | RAM; *available* is what can be had without swapping |
+| `service_vm_swap_{total,free}_bytes` | Swap |
+| `service_vm_boot_time_seconds` | When the VM booted (Unix time) |
+| `service_vm_filesystem_{size,avail}_bytes{mountpoint}` | Size of each local filesystem, and the space ordinary users can still use |
+| `service_vm_filesystem_files{,_avail}{mountpoint}` | Inodes, and inodes still free |
+| `service_vm_disk_{reads,writes}_total{device}` | Completed I/O requests per physical disk |
+| `service_vm_disk_{read,written}_bytes_total{device}` | Bytes read and written per physical disk |
+| `service_vm_disk_io_seconds_total{device}` | Time the disk had requests in flight |
+| `service_vm_monitor_source_success{source}` | 1 if that group of metrics could be read this time |
+| `service_vm_monitor_collect_seconds` | How long this response took to put together |
 
 A filesystem mounted several times (bind mounts, as podman makes for its own
 storage) is reported once, under its shortest mount point. Disks are the
@@ -114,5 +117,5 @@ expects.
 
 | Variable | Default | |
 |---|---|---|
-| `MACHINE_MONITOR_PORT` | `9110` | Port to listen on |
-| `MACHINE_MONITOR_HOST_ROOT` | `/host` | Where the VM's `/` is mounted; `/` to run it outside a container (`python3 machine_monitor.py`) |
+| `SERVICE_VM_MONITOR_PORT` | `9110` | Port to listen on |
+| `SERVICE_VM_MONITOR_HOST_ROOT` | `/host` | Where the VM's `/` is mounted; `/` to run it outside a container (`python3 service_vm_monitor.py`) |

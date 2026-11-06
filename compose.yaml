@@ -111,26 +111,16 @@ services:
     labels:
       idac.service: gadget-monitor
 
-  # The machine monitor, as every service VM runs it (see monitoring/README.md);
-  # the collector polls it like any other VM in config/machines.toml.
+  # The service VM monitor, as every service VM runs it: the settings are in
+  # monitoring/compose.yaml (see monitoring/README.md). The collector polls it
+  # like any other VM in config/service_vms.toml. This VM is SELinux-permissive
+  # and logged no denials without its label=disable; it's there for VMs that
+  # enforce.
   monitoring:
-    build:
-      context: monitoring
-    image: localhost/machine-monitor:latest
-    container_name: gadget-monitor-machine
-    init: true
-    user: "${SVC_UID}:${SVC_GID}"
-    # The VM's filesystems, for their size and free space. Read-only; rslave
-    # so mounts made or removed on the host later show up here too. No
-    # relabeling (:z) of the host's root, ever.
-    volumes:
-      - "/:/host:ro,rslave"
-    # So statting the host's filesystems works on an SELinux-enforcing VM. A
-    # precaution: this VM is permissive, and logged no denials without it.
-    security_opt:
-      - label=disable
-    ports:
-      - "9110:9110"
-    restart: unless-stopped
+    extends:
+      file: monitoring/compose.yaml
+      service: monitoring
+    build: monitoring
+    container_name: gadget-monitor-service-vm
     labels:
       idac.service: gadget-monitor

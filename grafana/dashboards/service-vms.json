@@ -1,7 +1,7 @@
 {
-  "uid": "gadget-machines",
-  "title": "VM resources",
-  "description": "CPU, memory and disks of the VMs in config/machines.toml, polled from the monitoring VM every minute.",
+  "uid": "gadget-service-vms",
+  "title": "Service VMs",
+  "description": "CPU, memory and disks of the VMs in config/service_vms.toml, polled from the monitoring VM every minute.",
   "tags": [
     "gadget-monitor"
   ],
@@ -18,18 +18,18 @@
   "templating": {
     "list": [
       {
-        "name": "machine",
-        "label": "VM",
+        "name": "service_vm",
+        "label": "Service VM",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "victoriametrics"
         },
         "query": {
-          "query": "label_values(gadget_machine_up, machine)",
-          "refId": "machine"
+          "query": "label_values(gadget_service_vm_up, service_vm)",
+          "refId": "service_vm"
         },
-        "definition": "label_values(gadget_machine_up, machine)",
+        "definition": "label_values(gadget_service_vm_up, service_vm)",
         "refresh": 2,
         "multi": true,
         "includeAll": true,
@@ -65,7 +65,7 @@
       "id": 2,
       "type": "state-timeline",
       "title": "Monitor reachable",
-      "description": "Whether the VM's machine monitor answered the collector's poll (every minute, from the monitoring VM). Down means the VM, its network, or the monitor container is down; the panels below have a gap for that time.",
+      "description": "Whether the VM's service VM monitor answered the collector's poll (every minute, from the monitoring VM). Down means the VM, its network, or the monitor container is down; the panels below have a gap for that time.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -82,8 +82,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (machine) (gadget_machine_up{machine=~\"$machine\"})",
-          "legendFormat": "{{machine}}",
+          "expr": "max by (service_vm) (gadget_service_vm_up{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -165,8 +165,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (machine) (1 - max by (machine, mountpoint) (machine_filesystem_avail_bytes{machine=~\"$machine\"}) / max by (machine, mountpoint) (machine_filesystem_size_bytes{machine=~\"$machine\"}))",
-          "legendFormat": "{{machine}}",
+          "expr": "max by (service_vm) (1 - max by (service_vm, mountpoint) (service_vm_filesystem_avail_bytes{service_vm=~\"$service_vm\"}) / max by (service_vm, mountpoint) (service_vm_filesystem_size_bytes{service_vm=~\"$service_vm\"}))",
+          "legendFormat": "{{service_vm}}",
           "refId": "A",
           "range": false,
           "instant": true
@@ -237,8 +237,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "time() - max by (machine) (machine_boot_time_seconds{machine=~\"$machine\"})",
-          "legendFormat": "{{machine}}",
+          "expr": "time() - max by (service_vm) (service_vm_boot_time_seconds{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}}",
           "refId": "A",
           "range": false,
           "instant": true
@@ -313,8 +313,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (machine) (rate(machine_cpu_seconds_total{machine=~\"$machine\", mode!=\"idle\"}[$__rate_interval])) / max by (machine) (machine_cpu_count{machine=~\"$machine\"})",
-          "legendFormat": "{{machine}}",
+          "expr": "sum by (service_vm) (rate(service_vm_cpu_seconds_total{service_vm=~\"$service_vm\", mode!=\"idle\"}[$__rate_interval])) / max by (service_vm) (service_vm_cpu_count{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -372,8 +372,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (machine) (rate(machine_cpu_seconds_total{machine=~\"$machine\", mode=\"iowait\"}[$__rate_interval])) / max by (machine) (machine_cpu_count{machine=~\"$machine\"})",
-          "legendFormat": "{{machine}} iowait",
+          "expr": "sum by (service_vm) (rate(service_vm_cpu_seconds_total{service_vm=~\"$service_vm\", mode=\"iowait\"}[$__rate_interval])) / max by (service_vm) (service_vm_cpu_count{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}} iowait",
           "refId": "A",
           "range": true,
           "instant": false
@@ -383,8 +383,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (machine) (rate(machine_cpu_seconds_total{machine=~\"$machine\", mode=\"steal\"}[$__rate_interval])) / max by (machine) (machine_cpu_count{machine=~\"$machine\"})",
-          "legendFormat": "{{machine}} steal",
+          "expr": "sum by (service_vm) (rate(service_vm_cpu_seconds_total{service_vm=~\"$service_vm\", mode=\"steal\"}[$__rate_interval])) / max by (service_vm) (service_vm_cpu_count{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}} steal",
           "refId": "B",
           "range": true,
           "instant": false
@@ -441,8 +441,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (machine) (machine_load5{machine=~\"$machine\"}) / max by (machine) (machine_cpu_count{machine=~\"$machine\"})",
-          "legendFormat": "{{machine}}",
+          "expr": "max by (service_vm) (service_vm_load5{service_vm=~\"$service_vm\"}) / max by (service_vm) (service_vm_cpu_count{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -500,8 +500,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - max by (machine) (machine_memory_available_bytes{machine=~\"$machine\"}) / max by (machine) (machine_memory_total_bytes{machine=~\"$machine\"})",
-          "legendFormat": "{{machine}} memory",
+          "expr": "1 - max by (service_vm) (service_vm_memory_available_bytes{service_vm=~\"$service_vm\"}) / max by (service_vm) (service_vm_memory_total_bytes{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}} memory",
           "refId": "A",
           "range": true,
           "instant": false
@@ -511,8 +511,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - max by (machine) (machine_swap_free_bytes{machine=~\"$machine\"}) / max by (machine) (machine_swap_total_bytes{machine=~\"$machine\"} > 0)",
-          "legendFormat": "{{machine}} swap",
+          "expr": "1 - max by (service_vm) (service_vm_swap_free_bytes{service_vm=~\"$service_vm\"}) / max by (service_vm) (service_vm_swap_total_bytes{service_vm=~\"$service_vm\"} > 0)",
+          "legendFormat": "{{service_vm}} swap",
           "refId": "B",
           "range": true,
           "instant": false
@@ -583,8 +583,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - max by (machine, mountpoint) (machine_filesystem_avail_bytes{machine=~\"$machine\"}) / max by (machine, mountpoint) (machine_filesystem_size_bytes{machine=~\"$machine\"})",
-          "legendFormat": "{{machine}} {{mountpoint}}",
+          "expr": "1 - max by (service_vm, mountpoint) (service_vm_filesystem_avail_bytes{service_vm=~\"$service_vm\"}) / max by (service_vm, mountpoint) (service_vm_filesystem_size_bytes{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}} {{mountpoint}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -642,8 +642,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (machine, mountpoint) (machine_filesystem_avail_bytes{machine=~\"$machine\"})",
-          "legendFormat": "{{machine}} {{mountpoint}}",
+          "expr": "max by (service_vm, mountpoint) (service_vm_filesystem_avail_bytes{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}} {{mountpoint}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -700,8 +700,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (machine, device) (rate(machine_disk_read_bytes_total{machine=~\"$machine\"}[$__rate_interval]))",
-          "legendFormat": "{{machine}} {{device}} read",
+          "expr": "sum by (service_vm, device) (rate(service_vm_disk_read_bytes_total{service_vm=~\"$service_vm\"}[$__rate_interval]))",
+          "legendFormat": "{{service_vm}} {{device}} read",
           "refId": "A",
           "range": true,
           "instant": false
@@ -711,8 +711,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (machine, device) (rate(machine_disk_written_bytes_total{machine=~\"$machine\"}[$__rate_interval]))",
-          "legendFormat": "{{machine}} {{device}} write",
+          "expr": "sum by (service_vm, device) (rate(service_vm_disk_written_bytes_total{service_vm=~\"$service_vm\"}[$__rate_interval]))",
+          "legendFormat": "{{service_vm}} {{device}} write",
           "refId": "B",
           "range": true,
           "instant": false
@@ -769,8 +769,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (machine, device) (rate(machine_disk_io_seconds_total{machine=~\"$machine\"}[$__rate_interval]))",
-          "legendFormat": "{{machine}} {{device}}",
+          "expr": "sum by (service_vm, device) (rate(service_vm_disk_io_seconds_total{service_vm=~\"$service_vm\"}[$__rate_interval]))",
+          "legendFormat": "{{service_vm}} {{device}}",
           "refId": "A",
           "range": true,
           "instant": false

@@ -83,7 +83,7 @@ def fetch_metrics(url, timeout):
 def filter_lines(text, labels, prefixes, ts_ms, max_lines=MAX_LINES):
     """Endpoint output -> (import lines with labels added, dropped count).
 
-    The machines probe imports its endpoints the same way.
+    The service VMs probe imports its endpoints the same way.
     """
     reserved = {"host", "check"} | labels.keys()
     out, dropped = [], 0

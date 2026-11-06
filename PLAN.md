@@ -61,11 +61,11 @@ Where the build differs from the original plan:
   **Postgres** dashboard. The database-side work is done on the database VM so
   the monitor holds no database credentials; the collector filters what it
   imports by name prefix and line count to protect the series budget.
-- **Added after the plan: VM resources** (#19). Each service VM runs the
-  machine monitor from `monitoring/` (CPU, memory, disks and load, served on
-  port 9110), and the collector polls every VM in `config/machines.toml`
-  every minute, importing with a `machine` label like the PostgreSQL probe,
-  onto a **VM resources** dashboard. A pull model, so the monitored VMs need
+- **Added after the plan: Service VMs** (#19). Each service VM runs the
+  monitor from `monitoring/` (CPU, memory, disks and load, served on
+  port 9110), and the collector polls every VM in `config/service_vms.toml`
+  every minute, importing with a `service_vm` label like the PostgreSQL probe,
+  onto a **Service VMs** dashboard. A pull model, so the monitored VMs need
   nothing from this one. The monitor is a stdlib Python script rather than
   node_exporter, to serve a fixed ~35 series per VM. Its published port
   bypasses firewalld (podman DNAT), so no VM needs a firewall change, at the
@@ -325,7 +325,7 @@ A missing data point then always comes with a reason you can see.
   thousand with 100 metrics. Measured in November 2026: about 260,000
   samples a day at 1.4 bytes each (index included), so a year plus a month
   comes to about 150 MB. Depth of history isn't the risk; the number of distinct
-  series is. Each VM in `config/machines.toml` adds 46 series sampled every
+  series is. Each VM in `config/service_vms.toml` adds 46 series sampled every
   minute, about 35 MB a year.
 - **Series caps:** `-storage.maxHourlySeries=20000` and
   `-storage.maxDailySeries=50000`, so a check that misbehaves can't grow the

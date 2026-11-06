@@ -1,4 +1,4 @@
-"""Machine monitor: CPU, memory, disk and load of the VM it runs on.
+"""Service VM monitor: CPU, memory, disk and load of the VM it runs on.
 
 Serves Prometheus text at http://<vm>:9110/metrics for the gadget monitor
 (dirac-institute/middle-earth-gadget-monitor), which polls it every minute.
@@ -25,22 +25,22 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-PORT = int(os.environ.get("MACHINE_MONITOR_PORT", "9110"))
+PORT = int(os.environ.get("SERVICE_VM_MONITOR_PORT", "9110"))
 # "/" works too, to run it outside a container.
-HOST_ROOT = os.environ.get("MACHINE_MONITOR_HOST_ROOT", "/host").rstrip("/")
+HOST_ROOT = os.environ.get("SERVICE_VM_MONITOR_HOST_ROOT", "/host").rstrip("/")
 
 CPU_MODES = ("user", "nice", "system", "idle", "iowait", "irq", "softirq", "steal")
-MEMINFO = {"MemTotal": "machine_memory_total_bytes",
-           "MemFree": "machine_memory_free_bytes",
-           "MemAvailable": "machine_memory_available_bytes",
-           "SwapTotal": "machine_swap_total_bytes",
-           "SwapFree": "machine_swap_free_bytes"}
+MEMINFO = {"MemTotal": "service_vm_memory_total_bytes",
+           "MemFree": "service_vm_memory_free_bytes",
+           "MemAvailable": "service_vm_memory_available_bytes",
+           "SwapTotal": "service_vm_swap_total_bytes",
+           "SwapFree": "service_vm_swap_free_bytes"}
 # Disk filesystems only: everything else is virtual (proc, tmpfs, overlay ...),
 # remote (nfs, which could hang) or an automounter trigger (autofs).
 LOCAL_FS = {"xfs", "ext2", "ext3", "ext4", "btrfs", "zfs"}
 SECTOR = 512  # /proc/diskstats counts 512-byte sectors on every device
 
-log = logging.getLogger("machine-monitor")
+log = logging.getLogger("service-vm-monitor")
 
 
 def cpu_and_boot():
@@ -50,17 +50,17 @@ def cpu_and_boot():
         f = line.split()
         if f[0] == "cpu":
             # Summed over cores; guest time is already counted in user.
-            out += [f'machine_cpu_seconds_total{{mode="{m}"}} {int(v) / clk}'
+            out += [f'service_vm_cpu_seconds_total{{mode="{m}"}} {int(v) / clk}'
                     for m, v in zip(CPU_MODES, f[1:])]
         elif f[0] == "btime":
-            out.append(f"machine_boot_time_seconds {f[1]}")
-    out.append(f"machine_cpu_count {os.cpu_count()}")
+            out.append(f"service_vm_boot_time_seconds {f[1]}")
+    out.append(f"service_vm_cpu_count {os.cpu_count()}")
     return out
 
 
 def load():
     f = Path("/proc/loadavg").read_text().split()
-    return [f"machine_load1 {f[0]}", f"machine_load5 {f[1]}", f"machine_load15 {f[2]}"]
+    return [f"service_vm_load1 {f[0]}", f"service_vm_load5 {f[1]}", f"service_vm_load15 {f[2]}"]
 
 
 def memory():
@@ -82,11 +82,11 @@ def disks():
         if not (blk / "device").exists() or (blk / "removable").read_text().strip() == "1":
             continue
         lb = f'{{device="{dev}"}}'
-        out += [f"machine_disk_reads_total{lb} {f[3]}",
-                f"machine_disk_read_bytes_total{lb} {int(f[5]) * SECTOR}",
-                f"machine_disk_writes_total{lb} {f[7]}",
-                f"machine_disk_written_bytes_total{lb} {int(f[9]) * SECTOR}",
-                f"machine_disk_io_seconds_total{lb} {int(f[12]) / 1000}"]
+        out += [f"service_vm_disk_reads_total{lb} {f[3]}",
+                f"service_vm_disk_read_bytes_total{lb} {int(f[5]) * SECTOR}",
+                f"service_vm_disk_writes_total{lb} {f[7]}",
+                f"service_vm_disk_written_bytes_total{lb} {int(f[9]) * SECTOR}",
+                f"service_vm_disk_io_seconds_total{lb} {int(f[12]) / 1000}"]
     return out
 
 
@@ -121,10 +121,10 @@ def filesystems():
             log.warning("statvfs %s: %s", mnt, e)
             continue
         lb = f'{{mountpoint="{mnt[len(HOST_ROOT):] or "/"}"}}'
-        out += [f"machine_filesystem_size_bytes{lb} {st.f_blocks * st.f_frsize}",
-                f"machine_filesystem_avail_bytes{lb} {st.f_bavail * st.f_frsize}",
-                f"machine_filesystem_files{lb} {st.f_files}",
-                f"machine_filesystem_files_avail{lb} {st.f_favail}"]
+        out += [f"service_vm_filesystem_size_bytes{lb} {st.f_blocks * st.f_frsize}",
+                f"service_vm_filesystem_avail_bytes{lb} {st.f_bavail * st.f_frsize}",
+                f"service_vm_filesystem_files{lb} {st.f_files}",
+                f"service_vm_filesystem_files_avail{lb} {st.f_favail}"]
     return out
 
 
@@ -142,7 +142,7 @@ def collect():
             log.warning("%s: %r", source.__name__, e)
             lines, ok = [], 0
         out += lines
-        out.append(f'machine_monitor_source_success{{source="{source.__name__}"}} {ok}')
+        out.append(f'service_vm_monitor_source_success{{source="{source.__name__}"}} {ok}')
     return "\n".join(out) + "\n"
 
 
@@ -152,7 +152,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
         t0 = time.monotonic()
-        body = (collect() + f"machine_monitor_collect_seconds {time.monotonic() - t0:.4f}\n").encode()
+        body = (collect() + f"service_vm_monitor_collect_seconds {time.monotonic() - t0:.4f}\n").encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; version=0.0.4")
         self.send_header("Content-Length", str(len(body)))
