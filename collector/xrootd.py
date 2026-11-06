@@ -14,6 +14,13 @@ each probe checks, in parallel:
 
 Stages are timed, and the certificate the server presents for TLS (its host
 certificate, also used for GSI) is read for its expiry date.
+
+The protocol is spoken by hand rather than through the XRootD Python bindings
+(the `xrootd` wheel). Without credentials, every request the bindings make
+fails with the same "Auth failed", refused and unroutable both come back as
+"Connection error", and the stage times and certificate are out of reach; the
+wheel would also add about 19 MB to the image. They are the way to go once
+the collector has credentials and can ask for statistics.
 """
 
 import asyncio

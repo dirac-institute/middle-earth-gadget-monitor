@@ -295,14 +295,15 @@ roughly 160,000 samples (a little over 200 KB) a day per server.
 ## xrootd servers
 
 The collector also probes each xrootd server in `config/xrootd.toml` (the
-proxies on rohan1-3) from this VM every minute, from the outside only: it
-talks the xrootd protocol as a client would, as far as login (connect,
-handshake, TLS, login), and stops where the server asks it to authenticate.
-It holds no grid credentials, so it never opens a file or moves data, and it
-can't see what only an authenticated client can (the server's statistics,
-transfers, errors). Each probe leaves one unauthenticated login in the
-server's log. To watch another server, add it to the config and rebuild the
-collector; the **Xrootd** dashboard picks it up with no change.
+proxy on rohan1; rohan2 and rohan3 are commented out until they run xrootd
+too) from this VM every minute, from the outside only: it talks the xrootd
+protocol as a client would, as far as login (connect, handshake, TLS, login),
+and stops where the server asks it to authenticate. It holds no grid
+credentials, so it never opens a file or moves data, and it can't see what
+only an authenticated client can (the server's statistics, transfers,
+errors). Each probe leaves one unauthenticated login in the server's log. To
+watch another server, add it to the config and rebuild the collector; the
+**Xrootd** dashboard picks it up with no change.
 
 The host check and the xrootd probe run in parallel, each with a 15 s timeout:
 

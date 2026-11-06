@@ -20,10 +20,12 @@ timeout = 15    # seconds for each part of a probe
 name = "rohan1"
 address = "rohan1.astro.washington.edu"
 
-[[server]]
-name = "rohan2"
-address = "rohan2.astro.washington.edu"
-
-[[server]]
-name = "rohan3"
-address = "rohan3.astro.washington.edu"
+# rohan2 and rohan3 are to become xrootd proxies too, but don't run xrootd
+# yet (port 1094 refuses). Uncomment them when they do.
+# [[server]]
+# name = "rohan2"
+# address = "rohan2.astro.washington.edu"
+#
+# [[server]]
+# name = "rohan3"
+# address = "rohan3.astro.washington.edu"
