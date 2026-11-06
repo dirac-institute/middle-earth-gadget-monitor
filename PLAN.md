@@ -61,6 +61,14 @@ Where the build differs from the original plan:
   **Postgres** dashboard. The database-side work is done on the database VM so
   the monitor holds no database credentials; the collector filters what it
   imports by name prefix and line count to protect the series budget.
+- **Added after the plan: outage signals** (#28), from the November 2026
+  NFS outage: processes in D state and NFSv4 state-recovery threads
+  (`checks/procs.sh`, every minute), RDMA port state and error counters
+  (`checks/rdma.sh`), direct-reclaim stalls (`checks/vmstat.sh`), and
+  DELEGRETURN, TEST_STATEID and FREE_STATEID as named ops in `checks/nfs.sh`.
+  About 70 series per host. The NFS inode cache size (`/proc/slabinfo`) needs
+  root and is not collected. **shire** is configured in `config/hosts.toml`
+  but commented out until astro-gadget can log in there.
 - **Added after the plan: Service VMs** (#19). Each service VM runs the
   monitor from `monitoring/` (CPU, memory, disks and load, served on
   port 9110), and the collector polls every VM in `config/service_vms.toml`

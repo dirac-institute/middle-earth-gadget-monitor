@@ -13,9 +13,20 @@ DS = {"type": "prometheus", "uid": "victoriametrics"}
 HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926"}  # dataviz categorical slots 1-2 (dark)
 # Login stages use the next slots (3-5) so they never borrow a host's color.
 STAGE_COLORS = {"connect": "#199e70", "auth": "#c98500", "shell": "#d55181"}
-# NFS ops take categorical slots 1-7 in order; OTHER is neutral gray, not a hue.
+# NFS ops take categorical slots 1-8 in order; OTHER is neutral gray, not a hue.
 OP_COLORS = {"READ": "#3987e5", "WRITE": "#d95926", "GETATTR": "#199e70", "LOOKUP": "#c98500",
-             "ACCESS": "#d55181", "OPEN": "#008300", "CLOSE": "#9085e9", "OTHER": "#8f8e86"}
+             "ACCESS": "#d55181", "OPEN": "#008300", "CLOSE": "#9085e9", "DELEGRETURN": "#e66767",
+             "OTHER": "#8f8e86"}
+# Ops the nfs check reports that the by-operation panels fold back into OTHER:
+# there are no slots left, and they have their own panels.
+NFS_STATE_OPS = "TEST_STATEID|FREE_STATEID"
+# Line style per NFS filesystem when a panel shows host x fs.
+FS_STYLES = {"shire": {"fill": "dash", "dash": [10, 6]}, "shiren": {"fill": "dot", "dash": [2, 4]}}
+# RDMA counters (checks/rdma.sh) take slots 1-8 in a panel repeated per host.
+RDMA_COUNTERS = {"packet_seq_err": "#3987e5", "out_of_sequence": "#d95926",
+                 "local_ack_timeout_err": "#199e70", "roce_adp_retrans": "#c98500",
+                 "roce_slow_restart_cnps": "#d55181", "req_remote_access_errors": "#008300",
+                 "req_cqe_error": "#9085e9", "resp_cqe_error": "#e66767"}
 NFS_FS = ("helios", "shire", "shiren")
 # GPUs (gondor only) take slots 3 and 7: never a host's color, and far apart.
 GPU_COLORS = {"gpu0": "#199e70", "gpu1": "#9085e9"}
@@ -128,12 +139,18 @@ panels.append(ts("Load per core", (16, y, 8, 9),
 y += 9
 
 panels.append(row("Memory and swap", y)); y += 1
-panels.append(ts("Memory available", (0, y, 12, 9),
+panels.append(ts("Memory available", (0, y, 8, 9),
     [target(f'node_memory_MemAvailable_bytes{{{H}}}', "{{host}} available"),
      target(f'node_memory_MemTotal_bytes{{{H}}}', "{{host}} total", "B")],
     "Available (solid) is how much memory new work can still use, counting cache the kernel would give back. Total (dashed) is installed RAM.",
     "bytes", host_overrides("total")))
-panels.append(ts("Swap free", (12, y, 8, 9),
+panels.append(ts("Direct reclaim stalls", (8, y, 6, 9),
+    [target(f'sum by (host) (rate({{__name__=~"node_vmstat_allocstall_.*", {H}}}[$__interval]))', "{{host}}")],
+    "Times per second a memory allocation stalled to reclaim memory itself (allocstall, all "
+    "zones, from /proc/vmstat). It slows whatever process is allocating, even while memory "
+    "available looks fine. 0 is normal.",
+    "cps", host_overrides()))
+panels.append(ts("Swap free", (14, y, 6, 9),
     [target(f'node_memory_SwapFree_bytes{{{H}}}', "{{host}} free"),
      target(f'node_memory_SwapTotal_bytes{{{H}}}', "{{host}} total", "B")],
     "Free swap (solid) against total swap (dashed). gondor has no swap configured, so both are 0.",
@@ -171,8 +188,18 @@ panels.append(stages)
 y += 17
 
 def per_call(metric, sel, by):
-    return (f'sum by ({by}) (rate(gadget_nfs_{metric}_seconds_total{{{sel}}}[$__interval])) '
-            f'/ sum by ({by}) (rate(gadget_nfs_ops_total{{{sel}}}[$__interval]))')
+    def r(m):
+        r = f'rate({m}{{{sel}}}[$__interval])'
+        if by == "op":
+            r = f'label_replace({r}, "op", "OTHER", "op", "{NFS_STATE_OPS}")'
+        return f'sum by ({by}) ({r})'
+    return f'{r(f"gadget_nfs_{metric}_seconds_total")} / {r("gadget_nfs_ops_total")}'
+
+def fs_overrides():
+    return host_overrides() + [
+        {"matcher": {"id": "byRegexp", "options": f"/ {fs}$/"},
+         "properties": [{"id": "custom.lineStyle", "value": style}]}
+        for fs, style in FS_STYLES.items()]
 
 panels.append(row("NFS", y)); y += 1
 for i, fs in enumerate(NFS_FS):
@@ -189,6 +216,85 @@ for i, fs in enumerate(NFS_FS):
         "finish, so a hung server shows as a gap, not a spike.",
         "s", host_overrides()))
 y += 16
+
+panels.append(row("Stuck processes, NFS state and RDMA", y)); y += 1
+panels.append(ts("Processes in D state", (0, y, 8, 8),
+    [target(f'gadget_processes{{{H}, state="D"}}', "{{host}}")],
+    "Processes in uninterruptible sleep (state D), sampled every minute. These are usually "
+    "waiting on I/O, often NFS, and can't be killed until it completes. A few for a moment is "
+    "normal; a count that stays up means something is stuck. This was the first visible "
+    "symptom of the November 2026 outage (hung Jupyter kernels).",
+    "short", host_overrides()))
+panels.append(ts("NFS state manager threads", (8, y, 8, 8),
+    [target(f'gadget_nfs_state_manager_threads{{{H}}}', "{{host}}")],
+    "NFSv4 client kernel threads (\"<server>-manager\") recovering lease or delegation state, "
+    "sampled every minute. Normally 0: one appears briefly when a server asks for state back. "
+    "Present at sample after sample means recovery is looping, as in the November 2026 outage.",
+    "short", host_overrides()))
+panels.append(ts("TEST_STATEID share of NFS calls", (16, y, 8, 8),
+    [target(f'100 * sum by (host) (rate(gadget_nfs_ops_total{{{H}, op="TEST_STATEID"}}[$__interval])) '
+            f'/ sum by (host) (rate(gadget_nfs_ops_total{{{H}}}[$__interval]))', "{{host}}")],
+    "TEST_STATEID calls as a percent of all NFS calls to helios, shire and shiren. The client "
+    "sends TEST_STATEID to check whether state it holds is still valid after the server "
+    "revoked some. Normally near 0; above a few percent is abnormal. In the November 2026 "
+    "outage it was 81% of all NFSv4 calls.",
+    "percent", host_overrides(), 0))
+y += 8
+panels.append(ts("TEST_STATEID calls", (0, y, 8, 8),
+    [target(f'sum by (host, fs) (rate(gadget_nfs_ops_total{{{H}, op="TEST_STATEID"}}[$__interval]))', "{{host}} {{fs}}")],
+    "TEST_STATEID calls per second, per host and NFS filesystem (helios solid, shire dashed, "
+    "shiren dotted).",
+    "ops", fs_overrides()))
+panels.append(ts("DELEGRETURN calls", (8, y, 8, 8),
+    [target(f'sum by (host, fs) (rate(gadget_nfs_ops_total{{{H}, op="DELEGRETURN"}}[$__interval]))', "{{host}} {{fs}}")],
+    "Delegations handed back to the server, per second, per host and filesystem (helios solid, "
+    "shire dashed, shiren dotted). A delegation lets a client cache a file; it returns one when "
+    "done or when the server recalls it. A sustained high rate is delegation churn, which "
+    "preceded the November 2026 outage. Their queue wait is on 'Queue wait by operation'.",
+    "ops", fs_overrides()))
+panels.append(panel("state-timeline", "RDMA port state", (16, y, 8, 8),
+    [target(f'max by (host, device, port) (node_infiniband_state_id{{{H}}} unless on (host, device, port) '
+            f'node_infiniband_physical_state_id{{{H}}} == 3) '
+            f'or max by (host, device, port) (node_infiniband_physical_state_id{{{H}}} == 3) * 0 - 1',
+            "{{host}} {{device}}")],
+    "State of each RDMA (RoCE) port, from /sys/class/infiniband. NFS to shire runs over RoCE. "
+    "Disabled (gray) is a port whose link is disabled, normally because it isn't cabled: "
+    "mlx5_1 on arnor and gondor. Any other port that isn't ACTIVE is a problem.",
+    None, None, {"lineWidth": 0, "fillOpacity": 80},
+    {"showValue": "never", "mergeValues": True, "rowHeight": 0.8,
+     "legend": {"showLegend": False}, "tooltip": {"mode": "single"}},
+    mappings=[{"type": "value", "options": {
+        "4": {"text": "ACTIVE", "color": GOOD, "index": 0},
+        "1": {"text": "DOWN", "color": CRIT, "index": 1},
+        "2": {"text": "INIT", "color": WARN, "index": 2},
+        "3": {"text": "ARMED", "color": WARN, "index": 3},
+        "5": {"text": "ACTIVE_DEFER", "color": WARN, "index": 4},
+        "-1": {"text": "Disabled", "color": "#8f8e86", "index": 5}}}],
+    color={"mode": "thresholds"},
+    # Thresholds give the same colors as the mappings: -1 gray, 1 red, 2-3 and
+    # 5 yellow, 4 green.
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "#8f8e86", "value": None}, {"color": CRIT, "value": 0}, {"color": WARN, "value": 2},
+        {"color": GOOD, "value": 4}, {"color": WARN, "value": 5}]}))
+y += 8
+panels.append(panel("timeseries", "RDMA errors and retransmissions: $host", (0, y, 24, 9),
+    [target(f'sum by (counter) (rate(gadget_rdma_hw_counter_total{{host="$host"}}[$__interval])) > 0', "{{counter}}")],
+    "Events per second from the RDMA adapters' hardware counters, all ports summed; only "
+    "counters that moved are drawn, so empty is good. packet_seq_err and out_of_sequence: "
+    "packets lost or reordered. local_ack_timeout_err: a peer didn't acknowledge in time. "
+    "roce_adp_retrans and roce_slow_restart_cnps: retransmissions and congestion slow-downs. "
+    "*_remote_access_errors and *_cqe_error: failed operations. The November 2026 outage "
+    "showed hundreds of thousands of sequence errors and retransmissions.",
+    "cps",
+    [{"matcher": {"id": "byName", "options": c},
+      "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": col}}]}
+     for c, col in RDMA_COUNTERS.items()],
+    {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never",
+     "spanNulls": 600000, "axisSoftMin": 0},
+    {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
+     "tooltip": {"mode": "multi", "sort": "desc"}},
+    extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2}))
+y += 9
 
 panels.append(row("NFS queue wait by operation", y)); y += 1
 for i, fs in enumerate(NFS_FS):
