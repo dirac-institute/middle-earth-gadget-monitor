@@ -2429,8 +2429,24 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#fab219",
+                "color": "#8f8e86",
                 "value": null
+              },
+              {
+                "color": "#d03b3b",
+                "value": 0
+              },
+              {
+                "color": "#fab219",
+                "value": 2
+              },
+              {
+                "color": "#0ca30c",
+                "value": 4
+              },
+              {
+                "color": "#fab219",
+                "value": 5
               }
             ]
           },

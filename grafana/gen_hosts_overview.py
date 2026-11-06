@@ -271,7 +271,11 @@ panels.append(panel("state-timeline", "RDMA port state", (16, y, 8, 8),
         "5": {"text": "ACTIVE_DEFER", "color": WARN, "index": 4},
         "-1": {"text": "Disabled", "color": "#8f8e86", "index": 5}}}],
     color={"mode": "thresholds"},
-    thresholds={"mode": "absolute", "steps": [{"color": WARN, "value": None}]}))
+    # Thresholds give the same colors as the mappings: -1 gray, 1 red, 2-3 and
+    # 5 yellow, 4 green.
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "#8f8e86", "value": None}, {"color": CRIT, "value": 0}, {"color": WARN, "value": 2},
+        {"color": GOOD, "value": 4}, {"color": WARN, "value": 5}]}))
 y += 8
 panels.append(panel("timeseries", "RDMA errors and retransmissions: $host", (0, y, 24, 9),
     [target(f'sum by (counter) (rate(gadget_rdma_hw_counter_total{{host="$host"}}[$__interval])) > 0', "{{counter}}")],
