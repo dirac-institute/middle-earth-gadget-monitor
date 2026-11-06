@@ -12,3 +12,12 @@ address = "arnor.astro.washington.edu"
 [[host]]
 name = "gondor"
 address = "gondor.astro.washington.edu"
+
+# shire (the NFS server for /data/shire and /nvme/shiren) runs every check
+# arnor does, plus the RDMA one on its bonded mlx5_bond_0. It stays commented
+# out until astro-gadget's key is authorized there: with it enabled, the
+# collector would retry a failing login every few minutes. Uncomment and
+# rebuild the collector; its host key is already in known_hosts.
+# [[host]]
+# name = "shire"
+# address = "shire.astro.washington.edu"
