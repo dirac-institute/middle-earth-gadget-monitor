@@ -1,0 +1,31 @@
+# xrootd servers probed by the collector, from this VM.
+#
+# Every minute the collector checks the host answers, then talks xrootd to
+# the server as far as login (connect, handshake, TLS, login; see
+# collector/xrootd.py), timing each stage and reading the host certificate's
+# expiry date. It holds no credentials, so it stops where the server asks it
+# to authenticate. The Xrootd dashboard picks up a new server with no change.
+#
+# `name` becomes the `server` label: keep it stable, a renamed server starts
+# new series.
+#
+# Optional per server:
+#   port      xrootd port (default 1094)
+#   vm_port   a TCP port that answers whenever the host is up (default 22)
+
+interval = 60   # seconds between probes of each server
+timeout = 15    # seconds for each part of a probe
+
+[[server]]
+name = "rohan1"
+address = "rohan1.astro.washington.edu"
+
+# rohan2 and rohan3 are to become xrootd proxies too, but don't run xrootd
+# yet (port 1094 refuses). Uncomment them when they do.
+# [[server]]
+# name = "rohan2"
+# address = "rohan2.astro.washington.edu"
+#
+# [[server]]
+# name = "rohan3"
+# address = "rohan3.astro.washington.edu"
