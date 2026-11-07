@@ -277,10 +277,18 @@ panels.append(panel("state-timeline", "RDMA port state", (16, y, 8, 8),
         {"color": "#8f8e86", "value": None}, {"color": CRIT, "value": 0}, {"color": WARN, "value": 2},
         {"color": GOOD, "value": 4}, {"color": WARN, "value": 5}]}))
 y += 8
+# A counter is drawn over the whole range if it moved anywhere in it, so a lone
+# 5-minute burst still gets a line (a single non-null point draws nothing). A
+# quiet host gets a "no errors" line, so "No data" only means the check is broken.
+rdma = 'gadget_rdma_hw_counter_total{host="$host"}'
+moved = f'increase({rdma}[$__range] @ end())'
 panels.append(panel("timeseries", "RDMA errors and retransmissions: $host", (0, y, 24, 9),
-    [target(f'sum by (counter) (rate(gadget_rdma_hw_counter_total{{host="$host"}}[$__interval])) > 0', "{{counter}}")],
+    [target(f'sum by (counter) (rate({rdma}[$__interval])) and on (counter) (sum by (counter) ({moved}) > 0)',
+            "{{counter}}"),
+     target(f'sum(0 * {rdma}) unless on () (sum({moved}) > 0)', "no errors", "B")],
     "Events per second from the RDMA adapters' hardware counters, all ports summed; only "
-    "counters that moved are drawn, so empty is good. packet_seq_err and out_of_sequence: "
+    "counters that moved in the time range are drawn, and a green \"no errors\" line at 0 "
+    "when none did. packet_seq_err and out_of_sequence: "
     "packets lost or reordered. local_ack_timeout_err: a peer didn't acknowledge in time. "
     "roce_adp_retrans and roce_slow_restart_cnps: retransmissions and congestion slow-downs. "
     "*_remote_access_errors and *_cqe_error: failed operations. The November 2026 outage "
@@ -288,9 +296,9 @@ panels.append(panel("timeseries", "RDMA errors and retransmissions: $host", (0, 
     "cps",
     [{"matcher": {"id": "byName", "options": c},
       "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": col}}]}
-     for c, col in RDMA_COUNTERS.items()],
+     for c, col in {**RDMA_COUNTERS, "no errors": GOOD}.items()],
     {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never",
-     "spanNulls": 600000, "axisSoftMin": 0},
+     "spanNulls": 600000, "axisSoftMin": 0, "axisSoftMax": 1},
     {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
      "tooltip": {"mode": "multi", "sort": "desc"}},
     extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2}))

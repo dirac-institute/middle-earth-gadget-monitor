@@ -2473,7 +2473,7 @@
       "id": 32,
       "type": "timeseries",
       "title": "RDMA errors and retransmissions: $host",
-      "description": "Events per second from the RDMA adapters' hardware counters, all ports summed; only counters that moved are drawn, so empty is good. packet_seq_err and out_of_sequence: packets lost or reordered. local_ack_timeout_err: a peer didn't acknowledge in time. roce_adp_retrans and roce_slow_restart_cnps: retransmissions and congestion slow-downs. *_remote_access_errors and *_cqe_error: failed operations. The November 2026 outage showed hundreds of thousands of sequence errors and retransmissions.",
+      "description": "Events per second from the RDMA adapters' hardware counters, all ports summed; only counters that moved in the time range are drawn, and a green \"no errors\" line at 0 when none did. packet_seq_err and out_of_sequence: packets lost or reordered. local_ack_timeout_err: a peer didn't acknowledge in time. roce_adp_retrans and roce_slow_restart_cnps: retransmissions and congestion slow-downs. *_remote_access_errors and *_cqe_error: failed operations. The November 2026 outage showed hundreds of thousands of sequence errors and retransmissions.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -2490,9 +2490,19 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (counter) (rate(gadget_rdma_hw_counter_total{host=\"$host\"}[$__interval])) > 0",
+          "expr": "sum by (counter) (rate(gadget_rdma_hw_counter_total{host=\"$host\"}[$__interval])) and on (counter) (sum by (counter) (increase(gadget_rdma_hw_counter_total{host=\"$host\"}[$__range] @ end())) > 0)",
           "legendFormat": "{{counter}}",
           "refId": "A",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(0 * gadget_rdma_hw_counter_total{host=\"$host\"}) unless on () (sum(increase(gadget_rdma_hw_counter_total{host=\"$host\"}[$__range] @ end())) > 0)",
+          "legendFormat": "no errors",
+          "refId": "B",
           "range": true
         }
       ],
@@ -2505,7 +2515,8 @@
             "fillOpacity": 0,
             "showPoints": "never",
             "spanNulls": 600000,
-            "axisSoftMin": 0
+            "axisSoftMin": 0,
+            "axisSoftMax": 1
           }
         },
         "overrides": [
@@ -2625,6 +2636,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#e66767"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "no errors"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#0ca30c"
                 }
               }
             ]
