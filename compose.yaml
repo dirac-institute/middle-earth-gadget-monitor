@@ -61,7 +61,7 @@ services:
       # UW NetID sign-in through the UW IdP's OpenID Connect (Grafana OSS has
       # no SAML). The entrypoint enables it only when the client id and secret
       # UW-IT issued are on shire (SECRETS.md). Everyone who signs in is a
-      # Viewer; the entrypoint adds them to the team that can see the
+      # Viewer; grafana/access.py adds them to the team that can see the
       # "UW NetID" folder.
       GF_AUTH_GENERIC_OAUTH_NAME: UW NetID
       GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://idp.u.washington.edu/idp/profile/oidc/authorize

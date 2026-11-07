@@ -38,64 +38,10 @@ else
 fi
 unset id secret
 
-# Folder permissions. File provisioning can't set them, so once Grafana
-# answers:
-# - Admin (per-user usage): remove every grant (org admins always keep access).
-# - UW NetID: View for the "UW NetID" team only.
-# then confirm an anonymous request is refused for each. The permissions
-# persist in grafana.db; this re-applies them on every start in case someone
-# edited them in the UI.
-#
-# Adding users to teams at sign-in (team sync) is a Grafana Enterprise
-# feature, so instead this keeps every user other than the admin in the team,
-# checking every 10 seconds. With sign-up off except through UW NetID, those
-# are the NetID users. A first-time user may wait that long for the folder.
-api=http://127.0.0.1:${GF_SERVER_HTTP_PORT:-3000}/api
-call() {
-    curl -sf -K - -H 'Content-Type: application/json' "$@" \
-        <<<"user = \"$GF_SECURITY_ADMIN_USER:$pw\""
-}
-check_anonymous() {  # dashboard uid, folder name
-    local code
-    code=$(curl -s -o /dev/null -w '%{http_code}' "$api/dashboards/uid/$1")
-    if [ "$code" = 200 ]; then
-        echo "gadget: WARNING $2 folder is still visible anonymously" >&2
-    else
-        echo "gadget: $2 folder restricted (anonymous gets $code)"
-    fi
-}
-setup_access() {
-    local team='' members users uid
-    for _ in $(seq 60); do
-        sleep 5
-        call -o /dev/null -X POST -d '{"items":[]}' "$api/folders/gadget-admin/permissions" || continue
-        team=$(call "$api/teams/search?name=UW%20NetID" | jq -r '.teams[0].id // empty') || continue
-        if [ -z "$team" ]; then
-            team=$(call -X POST -d '{"name":"UW NetID"}' "$api/teams" | jq -r '.teamId // empty') || continue
-        fi
-        [ -n "$team" ] || continue
-        call -o /dev/null -X POST -d "{\"items\":[{\"teamId\":$team,\"permission\":1}]}" \
-            "$api/folders/gadget-uw/permissions" || { team=''; continue; }
-        break
-    done
-    check_anonymous gadget-users Admin
-    check_anonymous gadget-uw-status "UW NetID"
-    if [ -z "$team" ]; then
-        echo "gadget: WARNING could not set folder permissions; restricted dashboards may be public" >&2
-        return
-    fi
-    while sleep 10; do
-        members=$(call "$api/teams/$team/members" | jq -r '.[].userId') || continue
-        users=$(call "$api/org/users" |
-            jq -r --arg admin "$GF_SECURITY_ADMIN_USER" '.[] | select(.login != $admin) | .userId') || continue
-        for uid in $(comm -13 <(sort <<<"$members") <(sort <<<"$users")); do
-            call -o /dev/null -X POST -d "{\"userId\":$uid}" "$api/teams/$team/members" &&
-                echo "gadget: added user $uid to the UW NetID team"
-        done
-    done
-}
+# Folder permissions and the UW NetID team are set through the HTTP API once
+# Grafana answers, so they run in the background (see access.py).
 if [ -n "${pw:-}" ]; then
-    setup_access &
+    python3 -I -u /usr/local/bin/gadget-access.py <<<"$pw" &
 fi
 unset pw
 
