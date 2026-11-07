@@ -3,11 +3,13 @@
 #   sudo ./init.sh
 #   podman compose up -d --build
 #
-# Four containers, all running as the service account from service.conf:
+# Five containers, all running as the service account from service.conf:
 #   victoriametrics  time-series database (data on local disk)
 #   grafana          dashboards, published on 127.0.0.1:8080
 #   collector        runs checks on the targets over persistent SSH sessions
 #   backup           hourly/daily backups of local state to /service/shire
+#   monitoring       this VM's CPU, memory and disks, on port 9110
+#                    (monitoring/, the same container every service VM runs)
 #
 # Every variable below comes from .env, written by init.sh from service.conf
 # and the host. There are no defaults; missing values make compose fail.
@@ -106,5 +108,19 @@ services:
       - "${GADGET_LOCAL_DIR}:/data:z"
       - "${GADGET_SHIRE_DIR}/backup:/shire"
     restart: unless-stopped
+    labels:
+      idac.service: gadget-monitor
+
+  # The service VM monitor, as every service VM runs it: the settings are in
+  # monitoring/compose.yaml (see monitoring/README.md). The collector polls it
+  # like any other VM in config/service_vms.toml. This VM is SELinux-permissive
+  # and logged no denials without its label=disable; it's there for VMs that
+  # enforce.
+  monitoring:
+    extends:
+      file: monitoring/compose.yaml
+      service: monitoring
+    build: monitoring
+    container_name: gadget-monitor-service-vm
     labels:
       idac.service: gadget-monitor

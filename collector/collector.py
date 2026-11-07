@@ -8,6 +8,7 @@ kind of probe lives in its own module:
   ssh_login   times a fresh interactive SSH login to each host
   websites    fetches each URL in config/websites.toml from this VM
   postgres    liveness and metrics of each server in config/postgres.toml
+  service_vms CPU, memory and disks of each VM in config/service_vms.toml
   storage     the size of the metrics database and the disk it lives on
 
 This module holds what they share: the VictoriaMetrics writer, the SSH key and
@@ -113,6 +114,7 @@ async def main():
     # Imported here, not at the top: they import from this module.
     import metrics_storage
     import postgres
+    import service_vms
     import ssh_checks
     import ssh_login
     import websites
@@ -129,10 +131,12 @@ async def main():
     log.info("websites: %s", ", ".join(s.site for s in sites))
     pg_servers = postgres.load_postgres(writer)
     log.info("postgres servers: %s", ", ".join(s.name for s in pg_servers))
+    vms = service_vms.load_service_vms(writer)
+    log.info("service VMs: %s", ", ".join(m.name for m in vms))
     tasks = [asyncio.create_task(writer.run())]
-    # Websites and postgres servers don't need the SSH key; start them before
-    # waiting on shire for it.
-    tasks += [asyncio.create_task(s.probe_loop()) for s in sites + pg_servers]
+    # Websites, postgres servers and service VMs don't need the SSH key; start
+    # them before waiting on shire for it.
+    tasks += [asyncio.create_task(s.probe_loop()) for s in sites + pg_servers + vms]
     tasks.append(asyncio.create_task(metrics_storage.metrics_storage_loop(writer)))
     await install_key()
     for h in hosts:
