@@ -16,6 +16,11 @@ minutes), so you are free to deploy your branch from this clone to test it. Stil
 (`cd /root/middle-earth-gadget-monitor && podman compose up -d --build --force-recreate`)
 and check the containers come back up.
 
+You may not be the first session tonight. When a session reports that it
+worked (see "Finish"), the wrapper starts another one on a fresh clone if
+there is time and plan usage left. PRs and comments from earlier sessions are
+yours like any others; the rules below already keep you from redoing them.
+
 ## Marking what you write
 
 You and the maintainer post as the same GitHub account, so the only way to
@@ -57,7 +62,8 @@ clearly a report you wrote, judge it by its content.)
 3. If an issue is unclear in a way that blocks you, comment on it (marked)
    with specific questions (once; don't repeat an unanswered question) and
    move to the next candidate.
-4. If nothing is actionable, make no changes and say why in your summary.
+4. If nothing is actionable, make no changes and say why in your summary
+   (and end it with `NIGHTLY_RESULT: nothing-to-do`; see "Finish").
 
 ## 2. Plan
 
@@ -94,4 +100,18 @@ writing code.
 Make sure the live stack is running what it was before (see above). Then end
 with a short plain-text summary: what you picked and why, the PR link, test
 results, and anything the maintainer should look at. This summary goes into
-the nightly log.
+the nightly log. Make it your last message, and make its last line exactly
+one of these, which tells the wrapper whether to start another session:
+
+    NIGHTLY_RESULT: worked
+    NIGHTLY_RESULT: nothing-to-do
+    NIGHTLY_RESULT: blocked
+
+- `worked`: you handled feedback, or made progress on an issue (a PR, a
+  pushed commit, or a question asked on an issue). Another session may start.
+- `nothing-to-do`: there was nothing actionable.
+- `blocked`: something outside the repo stopped you (`gh` not logged in, the
+  live stack or a target broken, a tool missing). Say what, in the summary.
+
+Only `worked` starts another session; anything else, or no line at all, ends
+the night.

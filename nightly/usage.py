@@ -2,15 +2,15 @@
 """Snapshot the Claude plan usage around nightly runs, and report on it.
 
     usage.py snap RUN PHASE   append one snapshot to the usage file, print it
-    usage.py report [N]       per-run usage for the last N runs (default 14)
+    usage.py report [N]       usage for each of the last N sessions (default 14)
+    usage.py room             exit 0 if there is room for one more session
 
-run.sh takes a "start" snapshot before the session, a "sample" every few
+run.sh takes a "start" snapshot before each session, a "sample" every few
 minutes while it runs, and an "end" one after it stops. The numbers are the
 ones /usage shows in Claude Code: the percentage used of the 5-hour window and
 of the weekly limit, for the whole account (anyone else's use of it counts
-too). The question the report answers is how much of a 5-hour window a
-typical night takes, so a later version of run.sh can decide whether there is
-room to start another session.
+too). The report says how much of a 5-hour window a typical session takes;
+"room" uses that to decide whether run.sh may start another session tonight.
 
 The endpoint is the one Claude Code itself calls for /usage. It isn't a
 documented API, so everything here fails soft: a failed snapshot is recorded
@@ -27,6 +27,14 @@ from datetime import datetime, timezone
 USAGE_FILE = os.environ.get("NIGHTLY_USAGE_FILE", "/root/gadget-nightly/usage.jsonl")
 CREDENTIALS = "/root/.claude/.credentials.json"
 URL = "https://api.anthropic.com/api/oauth/usage"
+# "room" leaves this many percentage points of the 5-hour window, and of the
+# week, unused on top of the most any recent session has taken. The week's
+# buffer is large because running out of it locks the maintainer out for days.
+FIVE_HOUR_BUFFER = float(os.environ.get("NIGHTLY_FIVE_HOUR_BUFFER", 15))
+WEEK_BUFFER = float(os.environ.get("NIGHTLY_WEEK_BUFFER", 30))
+# Sessions to size the next one from: the recent ones, so the estimate
+# follows changes in the prompt or the issues.
+ROOM_SESSIONS = 14
 
 
 def fetch():
@@ -91,38 +99,53 @@ def window_used(snaps):
                for key, vals in by_window.items() if key is not None)
 
 
+def load_sessions():
+    """The snapshots grouped by session, oldest first.
+
+    A session starts at each "start" snapshot, so a run started twice under
+    the same name (by hand, or before sessions were numbered) still counts as
+    two sessions.
+    """
+    sessions = []
+    with open(USAGE_FILE) as f:
+        for line in f:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if (rec.get("phase") == "start" or not sessions
+                    or sessions[-1][0] != rec["run"]):
+                sessions.append((rec["run"], []))
+            sessions[-1][1].append(rec)
+    return sessions
+
+
+def summarize(recs):
+    """A session's usage, or None if no snapshot of it succeeded."""
+    ok = [r for r in recs if "error" not in r and r.get("five_hour") is not None]
+    if not ok:
+        return None
+    t0 = datetime.fromisoformat(recs[0]["at"])
+    t1 = datetime.fromisoformat(recs[-1]["at"])
+    return {
+        "start": ok[0]["five_hour"], "end": ok[-1]["five_hour"],
+        "peak": max(r["five_hour"] for r in ok),
+        "used": window_used(ok),
+        "week": ok[-1]["seven_day"] - ok[0]["seven_day"],
+        "minutes": (t1 - t0).total_seconds() / 60,
+        "missed_start": ok[0] is not recs[0],
+    }
+
+
 def report(n):
-    runs = {}
     try:
-        with open(USAGE_FILE) as f:
-            for line in f:
-                try:
-                    rec = json.loads(line)
-                except ValueError:
-                    continue
-                runs.setdefault(rec["run"], []).append(rec)
+        sessions = load_sessions()
     except FileNotFoundError:
         print(f"no usage recorded yet ({USAGE_FILE})")
         return
+    rows = [(run, summarize(recs)) for run, recs in sessions[-n:]]
 
-    rows = []
-    for run, recs in list(runs.items())[-n:]:
-        ok = [r for r in recs if "error" not in r and r.get("five_hour") is not None]
-        if not ok:
-            rows.append((run, None))
-            continue
-        t0 = datetime.fromisoformat(recs[0]["at"])
-        t1 = datetime.fromisoformat(recs[-1]["at"])
-        rows.append((run, {
-            "start": ok[0]["five_hour"], "end": ok[-1]["five_hour"],
-            "peak": max(r["five_hour"] for r in ok),
-            "used": window_used(ok),
-            "week": ok[-1]["seven_day"] - ok[0]["seven_day"],
-            "minutes": (t1 - t0).total_seconds() / 60,
-            "missed_start": ok[0] is not recs[0],
-        }))
-
-    print(f"{'run':<22} {'start%':>6} {'end%':>5} {'peak%':>5} {'used':>5} {'week':>5} {'min':>4}")
+    print(f"{'session':<22} {'start%':>6} {'end%':>5} {'peak%':>5} {'used':>5} {'week':>5} {'min':>4}")
     for run, r in rows:
         if r is None:
             print(f"{run:<22} (no successful snapshots)")
@@ -132,8 +155,35 @@ def report(n):
               + ("  (no start snapshot)" if r["missed_start"] else ""))
     used = [r["used"] for _, r in rows if r]
     if used:
-        print(f"5-hour window used per run, last {len(used)}: "
+        print(f"5-hour window used per session, last {len(used)}: "
               f"median {statistics.median(used):g}, max {max(used):g} percentage points")
+
+
+def room():
+    """Whether another session fits in what is left of the plan.
+
+    Reads the newest snapshot (run.sh takes an "end" one just before asking)
+    and needs room for the most any recent session took, plus the buffers.
+    With no usable numbers the answer is no: better a session lost than the
+    maintainer locked out of the plan.
+    """
+    try:
+        sessions = load_sessions()
+    except FileNotFoundError:
+        return False, f"no usage recorded yet ({USAGE_FILE})"
+    if not sessions:
+        return False, "no usage recorded yet"
+    now = sessions[-1][1][-1]
+    if "error" in now or now.get("five_hour") is None:
+        return False, f"no current usage ({now.get('error', 'empty snapshot')})"
+    # The newest session has a good snapshot (now), so this isn't empty.
+    past = [r for r in (summarize(recs) for _, recs in sessions[-ROOM_SESSIONS:]) if r]
+    need, need_week = max(r["used"] for r in past), max(r["week"] for r in past)
+    five, week = now["five_hour"], now["seven_day"]
+    msg = (f"5-hour window {five:g}% + {need:g} (max of last {len(past)} sessions) "
+           f"+ {FIVE_HOUR_BUFFER:g} buffer, week {week:g}% + {need_week:g} + {WEEK_BUFFER:g} buffer")
+    return (five + need + FIVE_HOUR_BUFFER <= 100
+            and week + need_week + WEEK_BUFFER <= 100), msg
 
 
 def main():
@@ -141,6 +191,10 @@ def main():
         snap(sys.argv[2], sys.argv[3])
     elif len(sys.argv) in (2, 3) and sys.argv[1] == "report":
         report(int(sys.argv[2]) if len(sys.argv) == 3 else 14)
+    elif sys.argv[1:] == ["room"]:
+        ok, msg = room()
+        print(("room for another session: " if ok else "no room for another session: ") + msg)
+        sys.exit(0 if ok else 1)
     else:
         sys.exit(__doc__)
 

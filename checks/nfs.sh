@@ -8,11 +8,16 @@
 # Mounts that share a superblock (every automounted /astro/users/* on helios)
 # report identical numbers, so each superblock is counted once, then summed
 # per fs. Ops are folded into a fixed set plus OTHER to keep series bounded.
+# DELEGRETURN, TEST_STATEID and FREE_STATEID are kept apart because they
+# carry NFSv4 state recovery: in the November 2026 outage a client stuck
+# testing stateids sent tens of thousands of TEST_STATEID calls a second.
 # Times are the kernel's cumulative milliseconds, reported in seconds:
 #   queue    waiting in the client before the request was sent
 #   rtt      sent until the reply arrived
 #   execute  whole call, queue + rtt + reply processing
 # Average per call over an interval = increase(*_seconds_total) / increase(ops).
+rpc=/proc/net/rpc/nfs
+[ -r "$rpc" ] || rpc=/dev/null  # no NFS client loaded
 awk '
 FNR == 1 { file++ }
 # /proc/self/mountinfo: field 3 is the superblock major:minor, field 5 the mount point.
@@ -28,6 +33,10 @@ file == 1 { dev[$5] = $3; next }
     } else fs = ""
     next
 }
+# /proc/net/rpc/nfs "rpc" line: calls, retransmissions, auth refreshes, for
+# the whole NFS client (every server, not only these three).
+file == 3 && $1 == "rpc" { rpc_calls = $2; rpc_retrans = $3; next }
+file == 3 { next }
 # Per-op line: OP: ops ntrans timeouts bytes_sent bytes_recv queue_ms rtt_ms execute_ms [errors]
 fs != "" && $1 ~ /^[A-Z_]+:$/ && NF >= 9 {
     op = substr($1, 1, length($1) - 1)
@@ -37,11 +46,15 @@ fs != "" && $1 ~ /^[A-Z_]+:$/ && NF >= 9 {
     ops[k] += $2; queue[k] += $7; rtt[k] += $8; exec_[k] += $9
 }
 BEGIN {
-    split("READ WRITE GETATTR LOOKUP ACCESS OPEN CLOSE", n, " ")
+    split("READ WRITE GETATTR LOOKUP ACCESS OPEN CLOSE DELEGRETURN TEST_STATEID FREE_STATEID", n, " ")
     for (i in n) named[n[i]] = 1
-    nops = split("READ WRITE GETATTR LOOKUP ACCESS OPEN CLOSE OTHER", order, " ")
+    nops = split("READ WRITE GETATTR LOOKUP ACCESS OPEN CLOSE DELEGRETURN TEST_STATEID FREE_STATEID OTHER", order, " ")
 }
 END {
+    if (rpc_calls != "") {
+        printf "gadget_nfs_rpc_calls_total %.0f\n", rpc_calls
+        printf "gadget_nfs_rpc_retransmissions_total %.0f\n", rpc_retrans
+    }
     nfs = split("helios shire shiren", fss, " ")
     for (i = 1; i <= nfs; i++) {
         f = fss[i]
@@ -56,4 +69,4 @@ END {
             printf "gadget_nfs_execute_seconds_total%s %.3f\n", l, exec_[k] / 1000
         }
     }
-}' /proc/self/mountinfo /proc/self/mountstats
+}' /proc/self/mountinfo /proc/self/mountstats "$rpc"

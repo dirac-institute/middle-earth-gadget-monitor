@@ -1,6 +1,9 @@
-# Pinned SSH host keys for the monitored hosts (ssh-keyscan, 2026-10-26).
-# arnor and gondor present the same host key; raised with the sysadmin.
+# Pinned SSH host keys for the monitored hosts (ssh-keyscan, 2026-10-26;
+# shire 2026-11-06). arnor, gondor and shire present the same host key;
+# raised with the sysadmin.
 arnor.astro.washington.edu ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBL6FE5aPkCSWbIXWjhdewIrr4JBVWpSfogzXR57SqjR0csH7q6ZTSBdv0b3G77OpKlzO/rXiR/yveCuOkRoMChs=
 arnor.astro.washington.edu ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMvsu0R/EYiPxgDDPODUQhGQMzRRpcRtYP2YJFQgKAx4
 gondor.astro.washington.edu ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBL6FE5aPkCSWbIXWjhdewIrr4JBVWpSfogzXR57SqjR0csH7q6ZTSBdv0b3G77OpKlzO/rXiR/yveCuOkRoMChs=
 gondor.astro.washington.edu ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMvsu0R/EYiPxgDDPODUQhGQMzRRpcRtYP2YJFQgKAx4
+shire.astro.washington.edu ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBL6FE5aPkCSWbIXWjhdewIrr4JBVWpSfogzXR57SqjR0csH7q6ZTSBdv0b3G77OpKlzO/rXiR/yveCuOkRoMChs=
+shire.astro.washington.edu ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMvsu0R/EYiPxgDDPODUQhGQMzRRpcRtYP2YJFQgKAx4

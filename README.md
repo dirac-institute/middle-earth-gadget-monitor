@@ -23,7 +23,8 @@ folder need a UW NetID sign-in (see "UW NetID sign-in" below).
 | `SECRETS.md` | The SSH key, Grafana password and UW NetID client secret on `/service/shire`, and who can read them |
 | `PLAN.md` | Design: why the pieces are shaped the way they are, and the size budget |
 | `CLAUDE.md` | Notes for coding agents: testing against the live stack, what never to deploy live, GitHub rules |
-| `nightly/README.md` | Nightly agent that works one issue into a PR: setup, watching a session (`claude attach`), logs |
+| `monitoring/README.md` | The service VM monitor container (a VM's CPU, memory and disks), and how to add it to another service's repo |
+| `nightly/README.md` | Nightly agent that works open issues into PRs, one session per issue: setup, watching a session (`claude attach`), logs |
 
 ## How it works
 
@@ -45,10 +46,11 @@ folder need a UW NetID sign-in (see "UW NetID sign-in" below).
   timeout and returns their output. A normal cycle opens no new SSH
   connection and never touches the NFS home directory on the targets.
 - **VictoriaMetrics** stores the data on the VM's local disk
-  (`/local/gadget-monitor`) for 100 days.
+  (`/local/gadget-monitor`) for one year (see PLAN.md, "Retention").
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
-- **Grafana** has provisioned "Hosts overview" and "Websites" dashboards.
+- **Grafana** has provisioned "Hosts overview", "Websites", "Postgres",
+  "Service VMs" and "Gadget metrics storage" dashboards.
 
 ## Adding a check
 
@@ -73,7 +75,7 @@ Rules:
 2. **Don't set `host` or `check` labels.** The collector adds them, and drops
    lines that try.
 3. **Never use unbounded values as labels**: no PIDs, job or session IDs.
-   Every distinct label combination is a new series stored for 100 days, and
+   Every distinct label combination is a new series stored for a year, and
    series count is the main threat to the size budget. More than 500 lines
    per run are dropped. The one deliberate exception is `user` in the `users`
    checks: it is bounded by the hosts' accounts (~800), not by time.
@@ -165,7 +167,10 @@ lines. On the Admin dashboard, tell it not to repeat usernames.
 | `load` | `node_load1`, `node_load5`, `node_load15` |
 | `memory` | `node_memory_{MemTotal,MemFree,MemAvailable,SwapTotal,SwapFree}_bytes` |
 | `gpu` (gondor only, every minute) | `gadget_gpu_memory_{total,free}_bytes{gpu}`, `gadget_gpu_utilization_percent{gpu}`, `gadget_gpu_utilization_max_percent{gpu}`, `gadget_gpu_processes{gpu}` |
-| `nfs` | `gadget_nfs_{ops,queue_seconds,rtt_seconds,execute_seconds}_total{fs,op}`, `gadget_nfs_volumes{fs}` |
+| `nfs` | `gadget_nfs_{ops,queue_seconds,rtt_seconds,execute_seconds}_total{fs,op}`, `gadget_nfs_volumes{fs}`, `gadget_nfs_rpc_{calls,retransmissions}_total` |
+| `procs` (every minute) | `gadget_processes{state}`, `gadget_nfs_state_manager_threads` |
+| `rdma` | `node_infiniband_state_id{device,port}`, `node_infiniband_physical_state_id{device,port}`, `gadget_rdma_hw_counter_total{device,port,counter}` |
+| `vmstat` | `node_vmstat_{allocstall_*,pgscan_direct,pgsteal_direct,pgscan_kswapd,pgsteal_kswapd,oom_kill}` |
 | `users` | `gadget_user_cpu_seconds_total{user}`, `gadget_user_memory_bytes{user}`, `gadget_user_processes{user}` |
 | `users_gpu` (gondor only, every minute) | `gadget_user_gpu_memory_bytes{user}`, `gadget_user_gpu_percent{user}` |
 
@@ -183,14 +188,43 @@ filesystem), `shire` or `shiren` (separate storage on the same server). Other
 NFS servers are ignored. Mounts sharing a superblock report identical
 numbers, so each superblock is counted once; `gadget_nfs_volumes` is how many
 were summed. `op` is READ, WRITE, GETATTR, LOOKUP, ACCESS, OPEN (including
-OPEN_NOATTR), CLOSE or OTHER. Times:
+OPEN_NOATTR), CLOSE, DELEGRETURN, TEST_STATEID, FREE_STATEID or OTHER. The
+last three named are NFSv4 state management, kept apart because they
+dominated the November 2026 outage (see `procs` below). Times:
 - `queue`: waiting in the client before the call was sent;
 - `rtt`: sent until the reply arrived;
 - `execute`: the whole call.
 
 Average per call over an interval is `rate(..._seconds_total) / rate(gadget_nfs_ops_total)`.
 A call is only counted when it finishes, so a hung server shows as a gap in
-these graphs rather than a spike.
+these graphs rather than a spike. `gadget_nfs_rpc_*` are the client-wide
+totals from `/proc/net/rpc/nfs`, for every NFS server.
+
+**`procs`**, **`rdma`** and **`vmstat`** were added after the November 2026
+NFS outage (#28), in which Jupyter kernels hung in uninterruptible sleep, a
+client looped on NFSv4 state recovery and the RoCE links to shire lost
+packets. Each reads `/proc` or `/sys` only and needs no root:
+- `procs` counts processes (not threads) by the first letter of their state
+  (always R, S, D and Z; others when present), and the NFSv4 client's
+  `<server address>-manager` kernel threads. A manager thread exists only
+  while the client recovers state from a server, so normally the count is
+  0; one at sample after sample means recovery is looping. It runs every
+  minute to catch that.
+- `rdma` reports every RDMA port's state (`node_infiniband_*_id`, the
+  kernel's numbers: state 4 is ACTIVE, physical state 3 is Disabled) and
+  eight of the adapter's hardware counters: packet_seq_err,
+  out_of_sequence, local_ack_timeout_err, roce_adp_retrans,
+  roce_slow_restart_cnps, req_remote_access_errors, req_cqe_error and
+  resp_cqe_error. `mlx5_1` on arnor and gondor is not cabled and shows as
+  Disabled.
+- `vmstat` is direct reclaim (allocations that had to stop and free memory
+  themselves), pages scanned and reclaimed, and OOM kills, cumulative since
+  boot.
+
+Not collected: the NFS inode cache size (`/proc/slabinfo` and
+`/sys/kernel/slab` are root-only), and RECALL_ANY callbacks from `dmesg`
+(readable, but the kernel log is a ring buffer, so a count of matching lines
+is neither a gauge nor a counter).
 
 **`users`** reads systemd's per-user cgroups
 (`/sys/fs/cgroup/user.slice/user-<uid>.slice`), which hold every login and
@@ -292,8 +326,77 @@ page arrives within 15 s. For each site:
 | `gadget_website_seconds{site,stage}` | Time per stage, summed over redirects: `dns`, `connect`, `tls`, `response` (request sent until headers), `body`, and `total` (also recorded, up to the failure, when a probe fails) |
 | `gadget_website_cert_expiry_timestamp_seconds{site}` | When the certificate served expires |
 
-Each site is about 16 series, sampled every minute: roughly 2.3 million
-samples (a few MB) per site over 100 days.
+Each site is about 16 series, sampled every minute: roughly 8.4 million
+samples (about 10 MB) per site over a year.
+
+## PostgreSQL servers
+
+The collector also probes each PostgreSQL server in `config/postgres.toml`
+from this VM every minute. The servers are VMs deployed from
+[middle-earth-postgres](https://github.com/dirac-institute/middle-earth-postgres),
+which runs a metrics endpoint (`pg-monitor`, port 9187) that does the
+database-side work: it queries PostgreSQL and the backup repository in the
+background and serves the latest results, so the collector needs no database
+credentials. To watch another server, add it to the config and rebuild the
+collector; the **Postgres** dashboard picks it up with no change.
+
+Each probe does three things in parallel, each with a 15 s timeout:
+
+| Metric | Meaning |
+|---|---|
+| `gadget_postgres_vm_up{server}` | 1 if the VM answers on its SSH port (a refused connection counts: the VM answered) |
+| `gadget_postgres_port_up{server}` | 1 if a TCP connection to PostgreSQL's port succeeds from this VM |
+| `gadget_postgres_connect_seconds{server}` | How long that connection took |
+| `gadget_postgres_exporter_up{server}` | 1 if the metrics endpoint answered 200 |
+| `gadget_postgres_exporter_status{server,status}` | 1 for this probe's outcome: ok, http_error, timeout, connect_error or error |
+| `gadget_postgres_scrape_seconds{server}` | How long the endpoint took to answer |
+| `gadget_postgres_lines_{emitted,dropped}{server}` | Lines imported from the endpoint, and lines dropped |
+
+Then everything the endpoint serves (`pg_*`, `pgbackrest_*`, `pgmon_*`; see
+`MONITORING.md` in middle-earth-postgres) is imported with a `server` label.
+Imported lines follow the check rules: malformed lines, lines that set
+`server`, `host` or `check`, names outside the allowed prefixes, and anything
+past 1,000 lines are dropped and counted. A server may send its own
+namespaced metrics (from `monitor/custom/` in its repo) if their prefix is
+listed under `prefixes` for it in the config.
+
+`pg_up` (from the endpoint) says whether PostgreSQL itself could be queried;
+it is only known while the endpoint answers. The endpoint collects every
+60 s and serves its latest result, so `pg_up` (and every `pg_*` value) can lag
+by up to a minute: when PostgreSQL stops, `gadget_postgres_port_up` drops on
+the next probe and `pg_up` one probe later. In a new server's first minutes the rate panels
+read high, as on Gadget metrics storage: VictoriaMetrics counts each
+counter's first sample as an increase from zero.
+
+A server with three databases is about 110 series, sampled every minute:
+roughly 160,000 samples (a little over 200 KB) a day per server.
+
+## Service VMs
+
+The collector also polls the CPU, memory, disks and load of each VM in
+`config/service_vms.toml`, starting with this one, every minute. Each VM runs
+the **service VM monitor** from `monitoring/`: a small container, the same on
+every VM, that serves those numbers on port 9110. `monitoring/` is
+self-contained so it can be copied into any service repo built from
+[middle-earth-service-example](https://github.com/dirac-institute/middle-earth-service-example);
+`monitoring/README.md` has the steps and the list of metrics (`service_vm_*`).
+Once a VM serves them, add it to the config and rebuild the collector; the
+**Service VMs** dashboard picks it up with no change.
+
+Everything the endpoint serves is imported with a `service_vm` label, filtered
+the way PostgreSQL endpoints are: malformed lines, lines that set `service_vm`,
+`host` or `check`, names not starting with `service_vm_`, and anything past 500
+lines are dropped and counted. The collector's own metrics per VM:
+
+| Metric | Meaning |
+|---|---|
+| `gadget_service_vm_up{service_vm}` | 1 if the endpoint answered 200 |
+| `gadget_service_vm_status{service_vm,status}` | 1 for this poll's outcome: ok, http_error, timeout, connect_error or error |
+| `gadget_service_vm_scrape_seconds{service_vm}` | How long the endpoint took to answer |
+| `gadget_service_vm_lines_{emitted,dropped}{service_vm}` | Lines imported from the endpoint, and lines dropped |
+
+A VM with two filesystems and one disk is 46 series, sampled every minute:
+about 24 million samples (roughly 35 MB) a year per VM.
 
 ## Collector metrics
 
@@ -310,6 +413,43 @@ And for every host:
 - `gadget_clock_skew_seconds`.
 
 The backup container records `gadget_backup_*` and `gadget_storage_bytes`.
+
+## Gadget metrics storage
+
+The collector also watches its own database. Every 5 minutes it reads
+VictoriaMetrics' `/metrics` and the free space on `/local` (mounted
+read-only into the collector at `/srv/local`; nothing is read from it):
+
+| Metric | Meaning |
+|---|---|
+| `gadget_vm_data_bytes` | Database size on disk, samples and series index |
+| `gadget_vm_stored_samples` | Samples on disk |
+| `gadget_vm_samples_added_total` | Samples written (counter; resets when VictoriaMetrics restarts) |
+| `gadget_vm_retention_seconds` | `-retentionPeriod`, as set in `compose.yaml` |
+| `gadget_local_disk_{size,free}_bytes` | Size of the `/local` partition, and the space still free on it |
+
+The **Gadget metrics storage** dashboard plots the database against the
+partition (and the backup's 4.5 GiB cap) and projects where it is heading,
+assuming data keeps arriving at the last day's rate and costs what it costs
+now per sample:
+- **growth per day** = bytes per stored sample × samples written in the
+  last day;
+- **steady state** = growth per day × (retention + 31 days), since
+  VictoriaMetrics drops old data a whole month at a time;
+- if the steady state fits in the database's space (its size plus the free
+  space on `/local`), the dashboard shows the steady state; otherwise it
+  shows the date the free space runs out. While the database is younger than
+  the retention period this is the same as showing the date only if it is
+  less than a year away.
+
+The projection is computed in Grafana (`grafana/gen_metrics_storage.py`), not
+stored. Bytes per sample shrinks as VictoriaMetrics merges data into larger
+parts, so the projection tends to err high. The samples-per-day rate is the
+last day's increase divided by the time it actually covers (not `rate()`,
+which VictoriaMetrics divides by the whole window), so the tiles are right
+from the second sample on. In the probe's first day ever, the graphs read
+high: in range queries VictoriaMetrics counts the counter's first sample as
+an increase from zero. That goes away once the series is a day old.
 
 ## Local development
 

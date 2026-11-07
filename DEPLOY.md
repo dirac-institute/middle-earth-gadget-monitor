@@ -23,7 +23,7 @@ sudo ./init.sh --fresh
 Then verify:
 
 ```bash
-podman ps                                   # four gadget-monitor-* containers, Up
+podman ps                                   # five gadget-monitor-* containers, Up
 podman logs gadget-monitor-collector        # "arnor: agent up ...", "gondor: agent up ..."
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/   # 200
 ```
@@ -37,14 +37,17 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 |---|---|
 | `service.conf` | Service account name, uid and gid (astro-gadget). The single source of truth; everything else reads it via `.env` |
 | `init.sh` | Host-level setup only: podman, the service account, SSH hardening, `/local` and shire directories, the Grafana admin password, `.env`, and seeding/restoring local state |
-| `compose.yaml` | The four containers and their mounts |
-| `collector/` | Collector image: `collector.py` (scheduler, SSH sessions, VictoriaMetrics writer) plus the agent, checks and config copied in |
+| `compose.yaml` | The five containers and their mounts |
+| `collector/` | Collector image: `collector.py` (VictoriaMetrics writer, SSH key, startup) and one module per kind of probe: `ssh_checks.py` (persistent SSH sessions, check scheduler), `ssh_login.py` (login probe), `websites.py` (website probe), `postgres.py` (PostgreSQL servers), `service_vms.py` (service VM resources), `metrics_storage.py` (metrics database size and free space on `/local`); plus the agent, checks and config copied in |
 | `agent/agent.py` | Remote agent, sent to each target over the SSH session. Python 3.9, stdlib only |
 | `checks/*.sh` | One check per file (see README.md, "Adding a check") |
 | `config/hosts.toml` | Hosts to monitor |
 | `config/websites.toml` | Websites the collector fetches from this VM (see README.md, "Websites") |
+| `config/postgres.toml` | PostgreSQL servers the collector probes from this VM (see README.md, "PostgreSQL servers") |
+| `config/service_vms.toml` | Service VMs whose monitor the collector polls (see README.md, "Service VMs") |
 | `config/known_hosts` | Pinned SSH host keys for the targets |
-| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password, turns on UW NetID sign-in and sets the Admin and UW NetID folder permissions, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_users.py`, `gen_uw.py`, sharing `user_usage.py`) |
+| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and turns on UW NetID sign-in, `access.py` that sets the Admin and UW NetID folder permissions and keeps the UW NetID team in sync, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_postgres.py`, `gen_service_vms.py`, `gen_metrics_storage.py`, `gen_users.py`, `gen_uw.py`, sharing `user_usage.py`) |
+| `monitoring/` | Service VM monitor image and its compose settings (`monitoring/compose.yaml`, pulled into `compose.yaml` with `extends`): this VM's CPU, memory and disks on port 9110. The same folder goes into other service repos; see `monitoring/README.md` |
 | `backup/` | Backup image: `backup-loop.sh` (scheduler), `backup-once.sh`, `restore.sh`, vmbackup/vmrestore binaries |
 | `dev-startup.sh` | Local development with Docker |
 | `tools/` | Checking dashboards from the VM: `panel_data.py` (what each panel would draw, as text), `screenshot.sh` (PNG of a panel or dashboard). Not deployed; see README.md, "Checking a dashboard" |
@@ -57,8 +60,9 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 | `gadget-monitor-grafana` | built from `grafana/` | `/local/gadget-monitor/grafana` | `127.0.0.1:8080` |
 | `gadget-monitor-collector` | built from `collector/Dockerfile` | none (the SSH key is copied to its tmpfs at start) | outbound SSH |
 | `gadget-monitor-backup` | built from `backup/` | `/local/gadget-monitor`, shire `backup/` | compose network |
+| `gadget-monitor-service-vm` | built from `monitoring/` | none (the VM's `/` read-only at `/host`) | port 9110 on every interface |
 
-All four run as astro-gadget (uid 1734450). That is required to read the
+All five run as astro-gadget (uid 1734450). That is required to read the
 secrets and write the backups on shire, which is exported with
 `root_squash`.
 
@@ -85,13 +89,15 @@ closes.
 
 | What | Where | Bound |
 |---|---|---|
-| Live database | `/local/gadget-monitor/vm` | 100 days retention; series caps (20k per hour, 50k per day). The backup refuses to copy anything if it grows past 4.5 GiB |
+| Live database | `/local/gadget-monitor/vm` | One year retention; series caps (20k per hour, 50k per day). The backup refuses to copy anything if it grows past 4.5 GiB |
 | Grafana state | `/local/gadget-monitor/grafana` | small |
 | Backups | `/service/shire/gadget-monitor/backup/{latest,daily}` | 2 × the live database, so under 10 GB |
 
 Today the database is a few MB. Growth comes from the number of distinct
 series, not from depth of history (see README.md, "Adding a check"). The
-**Storage** tile on the dashboard shows both sizes.
+**Storage** tile on the dashboard shows both sizes, and the **Gadget metrics
+storage** dashboard shows the database against the `/local` partition, with
+a projection of when it would fill (README.md, "Gadget metrics storage").
 
 ## Backups
 
@@ -148,13 +154,14 @@ podman compose up -d
 
 ## Verifying a deployment
 
-1. `podman ps`: four containers `Up`. Run it again a minute later and check
+1. `podman ps`: five containers `Up`. Run it again a minute later and check
    the uptimes haven't reset.
 2. `podman logs gadget-monitor-collector`: `agent up` for both hosts, with
    no repeated `connect failed`.
 3. Dashboard: data for both hosts, every check `OK`, both SSH sessions
    `Connected`. **Websites** shows every site `Up`, or a reason under
-   "Failures by reason" that matches what a browser sees.
+   "Failures by reason" that matches what a browser sees. **Service VMs**
+   shows the monitor `Up` for every VM in `config/service_vms.toml`.
 4. On a target, `ps -u astro-gadget -f` should show exactly one
    `python3 -I -u -c import sys;...` agent.
 5. **Last backup** shows under an hour after the first `:07`.
@@ -162,7 +169,7 @@ podman compose up -d
    (anonymous gets 403)` and `UW NetID folder restricted (anonymous gets
    403)`, and logged out, the dashboard list shows only the gadget-monitor
    folder. It also says whether UW NetID sign-in is enabled.
-7. Reboot the VM. Afterwards `podman ps` shows all four containers again,
+7. Reboot the VM. Afterwards `podman ps` shows all five containers again,
    because `podman-restart.service` is enabled by `init.sh`.
 
 ## Troubleshooting
@@ -176,8 +183,8 @@ podman compose up -d
 | Gaps without failures | The collector itself was down: `podman ps`, `podman logs` |
 | **Last backup** growing | `podman logs gadget-monitor-backup`. `REFUSED` explains itself; otherwise check that shire is mounted and writable by astro-gadget |
 | Grafana log says it could not set folder permissions, or that a folder is still visible anonymously | The per-user dashboard and the UW NetID folder may be visible to anonymous viewers. Restart Grafana (`podman restart gadget-monitor-grafana`), or as admin open the folder's Permissions: Admin has no grants at all, UW NetID only View for the "UW NetID" team |
-| A NetID user can't see the UW NetID folder | Wait 10 seconds and reload: the entrypoint adds new users to the "UW NetID" team on that cycle. The log says `added user N to the UW NetID team`; if it never does, restart Grafana |
-| No "Sign in with UW NetID" button | The log says `UW NetID sign-in off`: the client id or secret on shire is missing or unreadable (README.md, "UW NetID sign-in") |
+| A NetID user can't see the UW NetID folder | Wait 10 seconds and reload: `grafana/access.py` adds new users to the "UW NetID" team on that cycle. The log says `added user N to the UW NetID team`; if it never does, restart Grafana |
+| No "Sign in with UW NetID" button | The log says `UW NetID sign-in off`: the client id or secret on shire is missing or unreadable (README.md, "Setting the OpenID client secret") |
 | UW IdP shows an error after "Sign in with UW NetID" | Usually the redirect URI registered with UW-IT doesn't match `https://gadget.astro.washington.edu/login/generic_oauth` exactly, or the client isn't registered for production yet |
 | Can't log in as admin | The password is re-applied from shire on every Grafana start: `sudo -u astro-gadget cat /service/shire/gadget-monitor/secrets/grafana-admin-password` |
 
