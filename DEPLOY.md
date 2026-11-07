@@ -46,7 +46,7 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 | `config/postgres.toml` | PostgreSQL servers the collector probes from this VM (see README.md, "PostgreSQL servers") |
 | `config/service_vms.toml` | Service VMs whose monitor the collector polls (see README.md, "Service VMs") |
 | `config/known_hosts` | Pinned SSH host keys for the targets |
-| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_postgres.py`, `gen_service_vms.py`, `gen_metrics_storage.py`, `gen_users.py`, sharing `user_usage.py`) |
+| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and turns on UW NetID sign-in, `access.py` that sets the Admin and UW NetID folder permissions and keeps the UW NetID team in sync, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_postgres.py`, `gen_service_vms.py`, `gen_metrics_storage.py`, `gen_users.py`, `gen_uw.py`, sharing `user_usage.py`) |
 | `monitoring/` | Service VM monitor image and its compose settings (`monitoring/compose.yaml`, pulled into `compose.yaml` with `extends`): this VM's CPU, memory and disks on port 9110. The same folder goes into other service repos; see `monitoring/README.md` |
 | `backup/` | Backup image: `backup-loop.sh` (scheduler), `backup-once.sh`, `restore.sh`, vmbackup/vmrestore binaries |
 | `dev-startup.sh` | Local development with Docker |
@@ -165,9 +165,10 @@ podman compose up -d
 4. On a target, `ps -u astro-gadget -f` should show exactly one
    `python3 -I -u -c import sys;...` agent.
 5. **Last backup** shows under an hour after the first `:07`.
-6. `podman logs gadget-monitor-grafana` says `Admin folder restricted to
-   admins (anonymous gets 403)`, and logged out, the dashboard list shows
-   only the gadget-monitor folder.
+6. `podman logs gadget-monitor-grafana` says `Admin folder restricted
+   (anonymous gets 403)` and `UW NetID folder restricted (anonymous gets
+   403)`, and logged out, the dashboard list shows only the gadget-monitor
+   folder. It also says whether UW NetID sign-in is enabled.
 7. Reboot the VM. Afterwards `podman ps` shows all five containers again,
    because `podman-restart.service` is enabled by `init.sh`.
 
@@ -181,7 +182,10 @@ podman compose up -d
 | NFS queue wait high | **NFS queue wait by operation** shows which calls are waiting. High WRITE queue wait alone usually means a large write burst (the client is throttling itself); everything rising together points at the server or network. Check **Round-trip time** too. NFS graphs going blank while `nfs` stays OK means no calls finished on that filesystem: idle, or hung |
 | Gaps without failures | The collector itself was down: `podman ps`, `podman logs` |
 | **Last backup** growing | `podman logs gadget-monitor-backup`. `REFUSED` explains itself; otherwise check that shire is mounted and writable by astro-gadget |
-| Grafana log says the Admin folder could not be restricted | The per-user dashboard may be visible to anonymous viewers. Restart Grafana (`podman restart gadget-monitor-grafana`), or as admin open the Admin folder, Permissions, and remove the Viewer and Editor roles |
+| Grafana log says it could not set folder permissions, or that a folder is still visible anonymously | The per-user dashboard and the UW NetID folder may be visible to anonymous viewers. Restart Grafana (`podman restart gadget-monitor-grafana`), or as admin open the folder's Permissions: Admin has no grants at all, UW NetID only View for the "UW NetID" team |
+| A NetID user can't see the UW NetID folder | Wait 10 seconds and reload: `grafana/access.py` adds new users to the "UW NetID" team on that cycle. The log says `added user N to the UW NetID team`; if it never does, restart Grafana |
+| No "Sign in with UW NetID" button | The log says `UW NetID sign-in off`: the client id or secret on shire is missing or unreadable (README.md, "Setting the OpenID client secret") |
+| UW IdP shows an error after "Sign in with UW NetID" | Usually the redirect URI registered with UW-IT doesn't match `https://gadget.astro.washington.edu/login/generic_oauth` exactly, or the client isn't registered for production yet |
 | Can't log in as admin | The password is re-applied from shire on every Grafana start: `sudo -u astro-gadget cat /service/shire/gadget-monitor/secrets/grafana-admin-password` |
 
 ## VM infrastructure notes

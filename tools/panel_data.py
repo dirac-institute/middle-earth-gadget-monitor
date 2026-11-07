@@ -22,7 +22,7 @@ dashboards use.
 
 Stdlib only; talks to Grafana on 127.0.0.1:8080 as the anonymous viewer, or
 with --admin as admin (password read from shire with sudo -u astro-gadget),
-which the Admin folder needs.
+which the Admin and UW NetID folders need.
 """
 import argparse, base64, json, math, re, subprocess, sys, urllib.error, urllib.request
 
@@ -146,7 +146,7 @@ def main():
     ap.add_argument("--from", dest="frm", help="start, e.g. now-6h (default: the dashboard's)")
     ap.add_argument("--to", help="end (default: the dashboard's)")
     ap.add_argument("--var", action="append", default=[], metavar="NAME=V1[,V2]", help="set a template variable")
-    ap.add_argument("--admin", action="store_true", help="log in as admin (needed for the Admin folder)")
+    ap.add_argument("--admin", action="store_true", help="log in as admin (needed for the Admin and UW NetID folders)")
     ap.add_argument("--url", default="http://127.0.0.1:8080")
     ap.add_argument("--max-points", type=int, default=1000, help="like the panel's width in pixels")
     ap.add_argument("--series", type=int, default=20, help="series to list per query before summarizing")
@@ -161,7 +161,7 @@ def main():
     g = Grafana(a.url, auth)
     got = g.call(f"/api/dashboards/uid/{a.uid}")
     if "dashboard" not in got:
-        sys.exit(f"dashboard {a.uid}: {got.get('message', got)}" + (" (Admin folder? try --admin)" if "ermission" in str(got) and not a.admin else ""))
+        sys.exit(f"dashboard {a.uid}: {got.get('message', got)}" + (" (Admin or UW NetID folder? try --admin)" if "ermission" in str(got) and not a.admin else ""))
     dash = got["dashboard"]
     frm = a.frm or dash.get("time", {}).get("from", "now-6h")
     to = a.to or dash.get("time", {}).get("to", "now")

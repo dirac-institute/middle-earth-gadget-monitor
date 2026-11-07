@@ -12,14 +12,15 @@ podman compose up -d --build
 
 The dashboards are at the VM's URL (the VM's reverse proxy terminates TLS and
 forwards to `127.0.0.1:8080`). Anyone can view; there is one `admin` account
-whose password is on shire (see `SECRETS.md`).
+whose password is on shire (see `SECRETS.md`). Dashboards in the **UW NetID**
+folder need a UW NetID sign-in (see "Setting the OpenID client secret" below).
 
 ## Documents
 
 | File | What it covers |
 |---|---|
 | `DEPLOY.md` | Deploying, updating, backups and restore, verifying, troubleshooting |
-| `SECRETS.md` | The SSH key and Grafana password on `/service/shire`, and who can read them |
+| `SECRETS.md` | The SSH key, Grafana password and UW OIDC client secret on `/service/shire`, and who can read them |
 | `PLAN.md` | Design: why the pieces are shaped the way they are, and the size budget |
 | `CLAUDE.md` | Notes for coding agents: testing against the live stack, what never to deploy live, GitHub rules |
 | `monitoring/README.md` | The service VM monitor container (a VM's CPU, memory and disks), and how to add it to another service's repo |
@@ -108,8 +109,8 @@ back into the generator.
 
 Two tools in `tools/` answer "does this panel show what I expect?" from the
 VM, without a browser. Both read the live Grafana on `127.0.0.1:8080` as the
-anonymous viewer; add `--admin` for the Admin folder (the password is read
-from shire with `sudo -u astro-gadget`). Deploy the dashboard first: they
+anonymous viewer; add `--admin` for the Admin and UW NetID folders (the
+password is read from shire with `sudo -u astro-gadget`). Deploy the dashboard first: they
 show what Grafana is serving, not the JSON in your checkout.
 
 **Start with `tools/panel_data.py`.** It runs each panel's own queries
@@ -245,10 +246,10 @@ What counts as "logged in" and "active" is defined once, in
 
 The **Users** row on Hosts overview shows the daily and weekly counts. The
 **Users (admin)** dashboard has per-user usage over any time range, counting
-only active intervals. It lives in the **Admin** folder, which the Grafana
-entrypoint restricts to admins on every start. The raw per-user series are
-still queryable by anyone who can reach Grafana's query API; that was judged
-acceptable, but no per-user ranking is shown publicly.
+only active intervals. It lives in the **Admin** folder, which
+`grafana/access.py` restricts to admins on every Grafana start. The raw
+per-user series are still queryable by anyone who can reach Grafana's query
+API; that was judged acceptable, but no per-user ranking is shown publicly.
 
 **Login probe** (built into the collector, not a file in `checks/`): every
 5 minutes, and every 15 after repeated timeouts, the collector opens a
@@ -404,6 +405,30 @@ which VictoriaMetrics divides by the whole window), so the tiles are right
 from the second sample on. In the probe's first day ever, the graphs read
 high: in range queries VictoriaMetrics counts the counter's first sample as
 an increase from zero. That goes away once the series is a day old.
+
+## Setting the OpenID client secret
+
+UW NetID sign-in (OpenID Connect against the UW IdP, settings in
+`compose.yaml`) stays off until the client id and secret are on shire.
+
+1. Ask UW-IT (iam-support@uw.edu) to register an OIDC client for the UW IdP
+   ([OIDC Client Registration](https://wiki.cac.washington.edu/display/infra/OIDC+Client+Registration)):
+   a confidential web-server client, authorization code flow with PKCE,
+   `token_endpoint_auth_method` `client_secret_basic`,
+   scopes `openid email profile`, and redirect URI
+   `https://gadget.astro.washington.edu/login/generic_oauth`. Ask for the
+   `email` claim to be released (Grafana won't create a user without one),
+   and `preferred_username` with the NetID if they can.
+2. Put the client id and secret UW-IT sends in
+   `/service/shire/gadget-monitor/secrets/uw-oidc-client-id` and
+   `uw-oidc-client-secret` (as astro-gadget, mode 0600; see `SECRETS.md`).
+3. `podman compose up -d --force-recreate grafana`. The Grafana log says
+   `UW NetID sign-in enabled`.
+4. Sign in with a NetID; open **UW NetID → UW status** (give it 10 seconds the
+   first time). Then check the user's login under Administration → Users: it
+   is `preferred_username`, or `sub` if the IdP doesn't release that. If it
+   is an opaque string, point `GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH` at
+   a claim that has the NetID (with no login claim, Grafana uses the email).
 
 ## Local development
 

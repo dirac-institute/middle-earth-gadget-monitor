@@ -35,7 +35,7 @@ def main():
     try:
         dash = json.load(urllib.request.urlopen(req, timeout=30))["dashboard"]
     except Exception as e:
-        sys.exit(f"dashboard {a.uid}: {e}" + ("" if headers else " (Admin folder? try --admin)"))
+        sys.exit(f"dashboard {a.uid}: {e}" + ("" if headers else " (Admin or UW NetID folder? try --admin)"))
 
     params = [("from", a.frm or dash.get("time", {}).get("from", "now-6h")),
               ("to", a.to or dash.get("time", {}).get("to", "now")), ("theme", a.theme)]
