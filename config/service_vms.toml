@@ -18,3 +18,12 @@ timeout = 10    # seconds for each poll
 [[service_vm]]
 name = "gadget"
 address = "gadget.astro.washington.edu"
+
+# PostgreSQL VMs (middle-earth-postgres): the same names as in postgres.toml.
+[[service_vm]]
+name = "mpg"
+address = "mpg.astro.washington.edu"
+
+[[service_vm]]
+name = "dpg"
+address = "dpg.astro.washington.edu"
