@@ -139,8 +139,13 @@ restore_live() {
     (cd "$LIVE" && podman compose up -d --build --force-recreate) || log "ERROR: redeploy failed"
     sleep 60
     podman ps --filter label=idac.service=gadget-monitor --format '{{.Names}} {{.Status}}'
-    if [ "$(podman ps -q --filter label=idac.service=gadget-monitor | wc -l)" -ne 4 ]; then
-        log "ERROR: not all four containers are up after the redeploy"
+    # Expect every container that was running before the night to be up again,
+    # rather than a fixed count that goes stale when a service is added.
+    local want have
+    want="$(grep -c ' running ' <<<"$BEFORE")"
+    have="$(podman ps -q --filter label=idac.service=gadget-monitor | wc -l)"
+    if [ "$have" -lt "$want" ]; then
+        log "ERROR: $have containers up after the redeploy; $want were running before"
         return 1
     fi
 }
