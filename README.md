@@ -49,7 +49,7 @@ whose password is on shire (see `SECRETS.md`).
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
 - **Grafana** has provisioned "Hosts overview", "Websites", "Postgres",
-  "Service VMs" and "Gadget metrics storage" dashboards.
+  "JupyterHub", "Service VMs" and "Gadget metrics storage" dashboards.
 
 ## Adding a check
 
@@ -171,6 +171,7 @@ lines. On the Admin dashboard, tell it not to repeat usernames.
 | `rdma` | `node_infiniband_state_id{device,port}`, `node_infiniband_physical_state_id{device,port}`, `gadget_rdma_hw_counter_total{device,port,counter}` |
 | `vmstat` | `node_vmstat_{allocstall_*,pgscan_direct,pgsteal_direct,pgscan_kswapd,pgsteal_kswapd,oom_kill}` |
 | `users` | `gadget_user_cpu_seconds_total{user}`, `gadget_user_memory_bytes{user}`, `gadget_user_processes{user}` |
+| `jupyterhub` | `gadget_jupyterhub_processes{process}` (see "JupyterHubs") |
 | `users_gpu` (gondor only, every minute) | `gadget_user_gpu_memory_bytes{user}`, `gadget_user_gpu_percent{user}` |
 
 **`gpu`** makes one `nvidia-smi -q` call. GPU utilization is bursty and the
@@ -282,6 +283,36 @@ page arrives within 15 s. For each site:
 
 Each site is about 16 series, sampled every minute: roughly 8.4 million
 samples (about 10 MB) per site over a year.
+
+## JupyterHubs
+
+The collector asks each hub in `config/jupyterhubs.toml` for its API root
+(`<url>hub/api`) from this VM every minute. That needs no token, and the hub
+process itself answers `{"version": "..."}`, so a good answer means the
+whole path a user takes (the host's Apache, configurable-http-proxy, the
+hub) is working. It does not test starting a server or a kernel: that needs
+an API token the hubs don't have yet (#1). The probe uses the website
+probe's fetch, with its stages and statuses, plus one: a 200 that isn't the
+hub's answer counts as `error`.
+
+| Metric | Meaning |
+|---|---|
+| `gadget_jupyterhub_up{hub}` | 1 if the hub answered with its version |
+| `gadget_jupyterhub_status{hub,status}` | 1 for this probe's outcome, as for websites |
+| `gadget_jupyterhub_http_status{hub}` | Final HTTP status code; 0 if there was no response |
+| `gadget_jupyterhub_seconds{hub,stage}` | Time per stage, as for websites |
+| `gadget_jupyterhub_cert_expiry_timestamp_seconds{hub}` | When the host's certificate expires |
+| `gadget_jupyterhub_info{hub,version}` | 1, with the version the hub reported |
+
+The `jupyterhub` check runs on each host every 5 minutes and counts
+processes by command line: `gadget_jupyterhub_processes{process}` for `hub`,
+`proxy` (configurable-http-proxy) and `singleuser` (one per user with a
+server running, busy or idle). The **JupyterHub** dashboard shows the probe
+and, for the host of the same name, the check, so when a hub stops
+answering it says which piece is gone.
+
+Each hub is about 17 series from the probe and 3 from the check: roughly
+9 million samples (about 12 MB) per hub over a year.
 
 ## PostgreSQL servers
 

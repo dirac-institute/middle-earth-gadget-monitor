@@ -33,6 +33,7 @@ There is no test suite. Test against the real thing:
   `cd grafana && python3 gen_hosts_overview.py > dashboards/hosts-overview.json`
   (likewise `gen_websites.py > dashboards/websites.json`,
   `gen_postgres.py > dashboards/postgres.json`,
+  `gen_jupyterhub.py > dashboards/jupyterhub.json`,
   `gen_metrics_storage.py > dashboards/metrics-storage.json` and
   `gen_users.py > dashboards-admin/users.json`). Deploy, then check the
   panels: `tools/panel_data.py <uid>` prints what each panel would draw (as
