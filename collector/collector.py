@@ -9,6 +9,7 @@ kind of probe lives in its own module:
   websites    fetches each URL in config/websites.toml from this VM
   postgres    liveness and metrics of each server in config/postgres.toml
   jupyterhub  whether each hub in config/jupyterhubs.toml answers, and how fast
+  service_vms CPU, memory and disks of each VM in config/service_vms.toml
   storage     the size of the metrics database and the disk it lives on
 
 This module holds what they share: the VictoriaMetrics writer, the SSH key and
@@ -115,6 +116,7 @@ async def main():
     import jupyterhub
     import metrics_storage
     import postgres
+    import service_vms
     import ssh_checks
     import ssh_login
     import websites
@@ -133,10 +135,13 @@ async def main():
     log.info("postgres servers: %s", ", ".join(s.name for s in pg_servers))
     hubs = jupyterhub.load_jupyterhubs(writer)
     log.info("jupyterhubs: %s", ", ".join(h.name for h in hubs))
+    vms = service_vms.load_service_vms(writer)
+    log.info("service VMs: %s", ", ".join(m.name for m in vms))
     tasks = [asyncio.create_task(writer.run())]
-    # Websites, postgres servers and hubs don't need the SSH key; start them
-    # before waiting on shire for it.
-    tasks += [asyncio.create_task(s.probe_loop()) for s in sites + pg_servers + hubs]
+    # Websites, postgres servers, hubs and service VMs don't need the SSH key;
+    # start them before waiting on shire for it.
+    tasks += [asyncio.create_task(s.probe_loop())
+              for s in sites + pg_servers + hubs + vms]
     tasks.append(asyncio.create_task(metrics_storage.metrics_storage_loop(writer)))
     await install_key()
     for h in hosts:

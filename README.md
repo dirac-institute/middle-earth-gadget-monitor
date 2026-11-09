@@ -22,6 +22,7 @@ whose password is on shire (see `SECRETS.md`).
 | `SECRETS.md` | The SSH key and Grafana password on `/service/shire`, and who can read them |
 | `PLAN.md` | Design: why the pieces are shaped the way they are, and the size budget |
 | `CLAUDE.md` | Notes for coding agents: testing against the live stack, what never to deploy live, GitHub rules |
+| `monitoring/README.md` | The service VM monitor container (a VM's CPU, memory and disks), and how to add it to another service's repo |
 | `nightly/README.md` | Nightly agent that works open issues into PRs, one session per issue: setup, watching a session (`claude attach`), logs |
 
 ## How it works
@@ -48,7 +49,7 @@ whose password is on shire (see `SECRETS.md`).
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
 - **Grafana** has provisioned "Hosts overview", "Websites", "Postgres",
-  "JupyterHub" and "Gadget metrics storage" dashboards.
+  "JupyterHub", "Service VMs" and "Gadget metrics storage" dashboards.
 
 ## Adding a check
 
@@ -165,7 +166,10 @@ lines. On the Admin dashboard, tell it not to repeat usernames.
 | `load` | `node_load1`, `node_load5`, `node_load15` |
 | `memory` | `node_memory_{MemTotal,MemFree,MemAvailable,SwapTotal,SwapFree}_bytes` |
 | `gpu` (gondor only, every minute) | `gadget_gpu_memory_{total,free}_bytes{gpu}`, `gadget_gpu_utilization_percent{gpu}`, `gadget_gpu_utilization_max_percent{gpu}`, `gadget_gpu_processes{gpu}` |
-| `nfs` | `gadget_nfs_{ops,queue_seconds,rtt_seconds,execute_seconds}_total{fs,op}`, `gadget_nfs_volumes{fs}` |
+| `nfs` | `gadget_nfs_{ops,queue_seconds,rtt_seconds,execute_seconds}_total{fs,op}`, `gadget_nfs_volumes{fs}`, `gadget_nfs_rpc_{calls,retransmissions}_total` |
+| `procs` (every minute) | `gadget_processes{state}`, `gadget_nfs_state_manager_threads` |
+| `rdma` | `node_infiniband_state_id{device,port}`, `node_infiniband_physical_state_id{device,port}`, `gadget_rdma_hw_counter_total{device,port,counter}` |
+| `vmstat` | `node_vmstat_{allocstall_*,pgscan_direct,pgsteal_direct,pgscan_kswapd,pgsteal_kswapd,oom_kill}` |
 | `users` | `gadget_user_cpu_seconds_total{user}`, `gadget_user_memory_bytes{user}`, `gadget_user_processes{user}` |
 | `jupyterhub` | `gadget_jupyterhub_processes{process}` (see "JupyterHubs") |
 | `users_gpu` (gondor only, every minute) | `gadget_user_gpu_memory_bytes{user}`, `gadget_user_gpu_percent{user}` |
@@ -184,14 +188,43 @@ filesystem), `shire` or `shiren` (separate storage on the same server). Other
 NFS servers are ignored. Mounts sharing a superblock report identical
 numbers, so each superblock is counted once; `gadget_nfs_volumes` is how many
 were summed. `op` is READ, WRITE, GETATTR, LOOKUP, ACCESS, OPEN (including
-OPEN_NOATTR), CLOSE or OTHER. Times:
+OPEN_NOATTR), CLOSE, DELEGRETURN, TEST_STATEID, FREE_STATEID or OTHER. The
+last three named are NFSv4 state management, kept apart because they
+dominated the November 2026 outage (see `procs` below). Times:
 - `queue`: waiting in the client before the call was sent;
 - `rtt`: sent until the reply arrived;
 - `execute`: the whole call.
 
 Average per call over an interval is `rate(..._seconds_total) / rate(gadget_nfs_ops_total)`.
 A call is only counted when it finishes, so a hung server shows as a gap in
-these graphs rather than a spike.
+these graphs rather than a spike. `gadget_nfs_rpc_*` are the client-wide
+totals from `/proc/net/rpc/nfs`, for every NFS server.
+
+**`procs`**, **`rdma`** and **`vmstat`** were added after the November 2026
+NFS outage (#28), in which Jupyter kernels hung in uninterruptible sleep, a
+client looped on NFSv4 state recovery and the RoCE links to shire lost
+packets. Each reads `/proc` or `/sys` only and needs no root:
+- `procs` counts processes (not threads) by the first letter of their state
+  (always R, S, D and Z; others when present), and the NFSv4 client's
+  `<server address>-manager` kernel threads. A manager thread exists only
+  while the client recovers state from a server, so normally the count is
+  0; one at sample after sample means recovery is looping. It runs every
+  minute to catch that.
+- `rdma` reports every RDMA port's state (`node_infiniband_*_id`, the
+  kernel's numbers: state 4 is ACTIVE, physical state 3 is Disabled) and
+  eight of the adapter's hardware counters: packet_seq_err,
+  out_of_sequence, local_ack_timeout_err, roce_adp_retrans,
+  roce_slow_restart_cnps, req_remote_access_errors, req_cqe_error and
+  resp_cqe_error. `mlx5_1` on arnor and gondor is not cabled and shows as
+  Disabled.
+- `vmstat` is direct reclaim (allocations that had to stop and free memory
+  themselves), pages scanned and reclaimed, and OOM kills, cumulative since
+  boot.
+
+Not collected: the NFS inode cache size (`/proc/slabinfo` and
+`/sys/kernel/slab` are root-only), and RECALL_ANY callbacks from `dmesg`
+(readable, but the kernel log is a ring buffer, so a count of matching lines
+is neither a gauge nor a counter).
 
 **`users`** reads systemd's per-user cgroups
 (`/sys/fs/cgroup/user.slice/user-<uid>.slice`), which hold every login and
@@ -322,6 +355,33 @@ counter's first sample as an increase from zero.
 
 A server with three databases is about 110 series, sampled every minute:
 roughly 160,000 samples (a little over 200 KB) a day per server.
+
+## Service VMs
+
+The collector also polls the CPU, memory, disks and load of each VM in
+`config/service_vms.toml`, starting with this one, every minute. Each VM runs
+the **service VM monitor** from `monitoring/`: a small container, the same on
+every VM, that serves those numbers on port 9110. `monitoring/` is
+self-contained so it can be copied into any service repo built from
+[middle-earth-service-example](https://github.com/dirac-institute/middle-earth-service-example);
+`monitoring/README.md` has the steps and the list of metrics (`service_vm_*`).
+Once a VM serves them, add it to the config and rebuild the collector; the
+**Service VMs** dashboard picks it up with no change.
+
+Everything the endpoint serves is imported with a `service_vm` label, filtered
+the way PostgreSQL endpoints are: malformed lines, lines that set `service_vm`,
+`host` or `check`, names not starting with `service_vm_`, and anything past 500
+lines are dropped and counted. The collector's own metrics per VM:
+
+| Metric | Meaning |
+|---|---|
+| `gadget_service_vm_up{service_vm}` | 1 if the endpoint answered 200 |
+| `gadget_service_vm_status{service_vm,status}` | 1 for this poll's outcome: ok, http_error, timeout, connect_error or error |
+| `gadget_service_vm_scrape_seconds{service_vm}` | How long the endpoint took to answer |
+| `gadget_service_vm_lines_{emitted,dropped}{service_vm}` | Lines imported from the endpoint, and lines dropped |
+
+A VM with two filesystems and one disk is 46 series, sampled every minute:
+about 24 million samples (roughly 35 MB) a year per VM.
 
 ## Collector metrics
 

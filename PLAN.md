@@ -67,6 +67,23 @@ Where the build differs from the original plan:
   proxy and single-user server processes on each host, on a **JupyterHub**
   dashboard. Not done yet: starting a kernel and timing it, which needs a
   scoped API token configured on the hubs.
+- **Added after the plan: outage signals** (#28), from the November 2026
+  NFS outage: processes in D state and NFSv4 state-recovery threads
+  (`checks/procs.sh`, every minute), RDMA port state and error counters
+  (`checks/rdma.sh`), direct-reclaim stalls (`checks/vmstat.sh`), and
+  DELEGRETURN, TEST_STATEID and FREE_STATEID as named ops in `checks/nfs.sh`.
+  About 70 series per host. The NFS inode cache size (`/proc/slabinfo`) needs
+  root and is not collected. **shire** is configured in `config/hosts.toml`
+  but commented out until astro-gadget can log in there.
+- **Added after the plan: Service VMs** (#19). Each service VM runs the
+  monitor from `monitoring/` (CPU, memory, disks and load, served on
+  port 9110), and the collector polls every VM in `config/service_vms.toml`
+  every minute, importing with a `service_vm` label like the PostgreSQL probe,
+  onto a **Service VMs** dashboard. A pull model, so the monitored VMs need
+  nothing from this one. The monitor is a stdlib Python script rather than
+  node_exporter, to serve a fixed ~35 series per VM. Its published port
+  bypasses firewalld (podman DNAT), so no VM needs a firewall change, at the
+  cost of the numbers being readable by anyone who can reach the VM.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 
@@ -134,7 +151,7 @@ Where the build differs from the original plan:
                               (python3, shipped over stdin)
 ```
 
-Four containers, all running as uid 1734450:
+Five containers, all running as uid 1734450:
 
 | Service | Image | Role |
 |---|---|---|
@@ -142,6 +159,7 @@ Four containers, all running as uid 1734450:
 | `grafana` | official `grafana/grafana-oss`, pinned | Frontend. Published on `127.0.0.1:8080` |
 | `collector` | built from this repo (Python + OpenSSH client) | Schedules checks, manages the SSH connections, writes samples |
 | `backup` | built from this repo (vmbackup/vmrestore binaries + sqlite3) | Hourly and daily backups to shire, size watchdog |
+| `monitoring` | built from `monitoring/` (Python) | This VM's CPU, memory and disks on port 9110, polled by the collector like any other VM (added for #19) |
 
 Apache and the hello-world Flask app are removed. Grafana serves HTTP itself,
 and the VM's reverse proxy still handles TLS.
@@ -321,7 +339,8 @@ A missing data point then always comes with a reason you can see.
   thousand with 100 metrics. Measured in November 2026: about 260,000
   samples a day at 1.4 bytes each (index included), so a year plus a month
   comes to about 150 MB. Depth of history isn't the risk; the number of distinct
-  series is.
+  series is. Each VM in `config/service_vms.toml` adds 46 series sampled every
+  minute, about 35 MB a year.
 - **Series caps:** `-storage.maxHourlySeries=20000` and
   `-storage.maxDailySeries=50000`, so a check that misbehaves can't grow the
   database without limit.
