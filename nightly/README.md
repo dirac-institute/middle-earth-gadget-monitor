@@ -17,10 +17,11 @@ up to 5 hours in all. Expect the odd metrics blip between 1 and 6 AM.
 
 | File | What it is |
 |---|---|
+| `nightly.conf` | This project's settings: live checkout, repo, work directory, session names, live stack and how to restore it |
 | `run.sh` | The cron wrapper: clone reset, sessions, idle/time limit, restore |
 | `usage.py` | Plan usage snapshots, the per-session report, and the room check (see "Plan usage") |
-| `prompt.md` | The nightly task given to Claude |
-| `settings.json` | Deny rules: no merge, close, delete, push to main, or edits to the live checkout |
+| `prompt.md` | The nightly task given to Claude, after a short section `run.sh` writes from `nightly.conf` |
+| `settings.json` | Deny rules: no merge, close, delete or push to main. `run.sh` adds rules against touching the live checkout |
 | `crontab` | The cron line (not installed automatically) |
 
 Testing rules and the GitHub rules the agent follows are in `../CLAUDE.md`.
@@ -29,7 +30,7 @@ you've merged and pulled there ever run.
 
 ## Watching a session
 
-Sessions are named `nightly-<date>-<n>`, e.g. `nightly-2026-11-05-1` for the
+Sessions are named `<SESSION_PREFIX>-<date>-<n>` (`nightly` here), e.g. `nightly-2026-11-05-1` for the
 night's first. (Before November 2026 there was one a night, `nightly-<date>`.)
 
 ```bash
@@ -126,6 +127,39 @@ failed, the answer is no.
 
 The endpoint is the one Claude Code calls for `/usage`, not a documented API.
 A failed snapshot is logged and recorded as an error; it never stops a run.
+
+## Using it in another project
+
+Everything in this directory except `nightly.conf` and `crontab` is the same
+for every project.
+
+1. Copy `nightly/` into the other repo.
+2. Edit `nightly.conf`:
+   - `LIVE`, `REPO_URL`, `WORK`: its live checkout, its GitHub URL, and a
+     work directory of its own.
+   - `SESSION_PREFIX`: must differ from this project's if both run under the
+     same Claude login (the same user on the same machine). `run.sh` finds its
+     sessions by name.
+   - `LIVE_LABEL`, `RESTORE_CMD`, `COPY_FILES`: how its live stack is found
+     and put back, and which untracked files a clone needs. Leave
+     `LIVE_LABEL` empty if there is no live stack; then nothing is restored.
+3. Fix the path in `crontab`, and pick a time that doesn't overlap another
+   project's run.
+4. Write the repo a `CLAUDE.md`. The prompt leans on it for everything
+   project-specific: how to test, what must never be deployed live, the
+   GitHub rules (see this repo's `CLAUDE.md` for the shape).
+5. On GitHub: a fine-grained token for that repo (Contents, Issues, Pull
+   requests: read/write), and a ruleset on `main` (require a pull request,
+   block force pushes, restrict deletions, no bypass). `gh` holds one token
+   per user, so a second project under the same user needs a token that
+   covers both repos.
+6. Do the setup below with that project's paths.
+
+**Plan usage is per Claude login.** Projects running as the same user on the
+same machine share one plan: `usage.py` measures the whole account, so each
+project's `room` check sees the other's use, and their nights compete for the
+same budget. For a separate budget, run the other project as a different user
+(or with its own `CLAUDE_CONFIG_DIR`) logged in to a different account.
 
 ## Setup
 
