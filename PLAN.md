@@ -425,8 +425,8 @@ from a corrupt local database: `podman compose down`, move
   - load 1m and 5m, plus load per core
   - available and total memory
   - free swap (showing "no swap" when there is none)
-  - check health
-  - backup age
+  - check health and backup age (since moved to a separate "Gadget
+    collector internals" dashboard, so the landing page shows only hosts)
 - Dashboards edited in the UI persist through grafana.db backups. Important
   ones should be exported back into `grafana/dashboards/`.
 

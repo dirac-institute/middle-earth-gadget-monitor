@@ -49,7 +49,11 @@ whose password is on shire (see `SECRETS.md`).
 - **Backups** go to `/service/shire/gadget-monitor/backup` every hour (plus a
   daily copy), and `init.sh` restores from them on a new VM.
 - **Grafana** has provisioned "Hosts overview", "Websites", "Postgres",
-  "JupyterHub", "Service VMs" and "Gadget metrics storage" dashboards.
+  "JupyterHub", "Service VMs", "Gadget collector internals" and "Gadget
+  metrics storage" dashboards. Hosts overview is the landing page and shows
+  only the hosts; whether the monitor itself is working (check status, SSH
+  sessions, backups) is on Gadget collector internals, linked from its
+  toolbar.
 
 ## Adding a check
 
