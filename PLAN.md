@@ -80,6 +80,7 @@ Where the build differs from the original plan:
   (`astro-gadgetmon`, the per-host `user` in `config/hosts.toml`), since
   astro-gadget can't log in there. It runs cpu, load, memory, procs, rdma,
   vmstat and users; nfs, jupyterhub and the GPU checks don't apply to it.
+  It has no login probe (`login_probe = false`): users don't log in there.
 - **Added after the plan: Service VMs** (#19). Each service VM runs the
   monitor from `monitoring/` (CPU, memory, disks and load, served on
   port 9110), and the collector polls every VM in `config/service_vms.toml`

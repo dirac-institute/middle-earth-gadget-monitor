@@ -58,6 +58,34 @@
         "sort": 1
       },
       {
+        "name": "login_host",
+        "label": "Login probe",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "hide": 2,
+        "query": {
+          "query": "label_values(gadget_ssh_login_seconds{host=~\"$host\"}, host)",
+          "refId": "login_host"
+        },
+        "definition": "label_values(gadget_ssh_login_seconds{host=~\"$host\"}, host)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1
+      },
+      {
         "name": "nfs_host",
         "label": "NFS client",
         "type": "query",
@@ -1019,7 +1047,7 @@
     {
       "id": 12,
       "type": "timeseries",
-      "title": "Login stages: $host",
+      "title": "Login stages: $login_host",
       "description": "Where the login time goes, stacked. connect: DNS and TCP. auth: key exchange and authentication, which on these hosts reads ~/.ssh/authorized_keys from the NFS home directory. shell: session setup, login shell and profile until a typed command runs. A hung login shows only the stages it finished.",
       "datasource": {
         "type": "prometheus",
@@ -1037,7 +1065,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_ssh_login_seconds{host=\"$host\", stage=\"connect\"}",
+          "expr": "gadget_ssh_login_seconds{host=\"$login_host\", stage=\"connect\"}",
           "legendFormat": "connect",
           "refId": "A",
           "range": true
@@ -1047,7 +1075,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_ssh_login_seconds{host=\"$host\", stage=\"auth\"}",
+          "expr": "gadget_ssh_login_seconds{host=\"$login_host\", stage=\"auth\"}",
           "legendFormat": "auth",
           "refId": "B",
           "range": true
@@ -1057,7 +1085,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_ssh_login_seconds{host=\"$host\", stage=\"shell\"}",
+          "expr": "gadget_ssh_login_seconds{host=\"$login_host\", stage=\"shell\"}",
           "legendFormat": "shell",
           "refId": "C",
           "range": true
@@ -1138,7 +1166,7 @@
           "sort": "none"
         }
       },
-      "repeat": "host",
+      "repeat": "login_host",
       "repeatDirection": "h",
       "maxPerRow": 2
     },

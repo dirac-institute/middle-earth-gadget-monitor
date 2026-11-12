@@ -147,7 +147,8 @@ async def main():
     for h in hosts:
         for loop in (h.connection_loop, h.ping_loop, h.status_loop, h.schedule_loop):
             tasks.append(asyncio.create_task(loop()))
-        tasks.append(asyncio.create_task(ssh_login.login_probe_loop(h)))
+        if h.login_probe:
+            tasks.append(asyncio.create_task(ssh_login.login_probe_loop(h)))
     await asyncio.gather(*tasks)
 
 

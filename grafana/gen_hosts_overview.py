@@ -135,8 +135,10 @@ panels.append(ts("Login time", (0, y, 24, 8),
     "Time for a brand-new interactive SSH login to reach a usable shell, probed every 5 minutes "
     "(every 15 after repeated timeouts). Timeouts (60 s) show as FAIL on ssh_login in Check status.",
     "s", host_overrides()))
-stages = panel("timeseries", "Login stages: $host", (0, y + 8, 24, 9),
-    [target(f'gadget_ssh_login_seconds{{host="$host", stage="{st}"}}', st, ref)
+# Repeated over $login_host (hosts with login probe data), not $host: shire
+# has no login probe (login_probe = false in hosts.toml).
+stages = panel("timeseries", "Login stages: $login_host", (0, y + 8, 24, 9),
+    [target(f'gadget_ssh_login_seconds{{host="$login_host", stage="{st}"}}', st, ref)
      for st, ref in (("connect", "A"), ("auth", "B"), ("shell", "C"))],
     "Where the login time goes, stacked. connect: DNS and TCP. auth: key exchange and authentication, "
     "which on these hosts reads ~/.ssh/authorized_keys from the NFS home directory. shell: session setup, "
@@ -149,7 +151,7 @@ stages = panel("timeseries", "Login stages: $host", (0, y + 8, 24, 9),
      "spanNulls": 600000, "axisSoftMin": 0, "stacking": {"mode": "normal", "group": "A"}},
     {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
      "tooltip": {"mode": "multi", "sort": "none"}},
-    extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2})
+    extra={"repeat": "login_host", "repeatDirection": "h", "maxPerRow": 2})
 panels.append(stages)
 y += 17
 
@@ -365,6 +367,12 @@ dash = {
         "query": {"query": "label_values(gadget_ssh_connected, host)", "refId": "host"},
         "definition": "label_values(gadget_ssh_connected, host)",
         "refresh": 2, "multi": True, "includeAll": True, "allValue": ".*",
+        "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}, {
+        # Hidden: the selected hosts with a login probe.
+        "name": "login_host", "label": "Login probe", "type": "query", "datasource": DS, "hide": 2,
+        "query": {"query": 'label_values(gadget_ssh_login_seconds{host=~"$host"}, host)', "refId": "login_host"},
+        "definition": 'label_values(gadget_ssh_login_seconds{host=~"$host"}, host)',
+        "refresh": 2, "multi": True, "includeAll": True,
         "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}, {
         # Hidden: the selected hosts that are NFS clients (run the nfs check).
         "name": "nfs_host", "label": "NFS client", "type": "query", "datasource": DS, "hide": 2,

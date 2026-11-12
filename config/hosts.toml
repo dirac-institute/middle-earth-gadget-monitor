@@ -3,6 +3,8 @@
 # Each host gets one persistent SSH session running the remote agent. `checks`
 # names files in checks/ (without .sh); omit it to run every check. `user`
 # overrides the login for one host; the same key is used everywhere.
+# `login_probe = false` turns off the timed interactive login (README.md,
+# "Login probe") for a host people don't log in to.
 
 user = "astro-gadget"
 
@@ -18,9 +20,11 @@ address = "gondor.astro.washington.edu"
 # can't log in there; the key is authorized for a local account instead
 # (uid 1000, home on local disk). Its checks are listed so shire doesn't run
 # the ones that only make sense on a compute host: no NFS client mounts, no
-# JupyterHub, no GPUs. rdma covers its bonded mlx5_bond_0.
+# JupyterHub, no GPUs. rdma covers its bonded mlx5_bond_0. No login probe:
+# users don't log in to shire, so its login time isn't worth watching.
 [[host]]
 name = "shire"
 address = "shire.astro.washington.edu"
 user = "astro-gadgetmon"
 checks = ["cpu", "load", "memory", "procs", "rdma", "vmstat", "users"]
+login_probe = false

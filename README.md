@@ -262,7 +262,9 @@ acceptable, but no per-user ranking is shown publicly.
 
 **Login probe** (built into the collector, not a file in `checks/`): every
 5 minutes, and every 15 after repeated timeouts, the collector opens a
-brand-new interactive SSH login to each host. It types a command and times
+brand-new interactive SSH login to each host (except those with
+`login_probe = false` in `config/hosts.toml`: shire, which users don't log
+in to). It types a command and times
 how long the login takes to become usable. The results are
 `gadget_ssh_login_seconds{stage}` with stages `connect` (DNS and TCP), `auth`
 (key exchange and authentication; this reads `authorized_keys` from the NFS
