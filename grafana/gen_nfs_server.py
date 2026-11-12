@@ -24,6 +24,7 @@ FS = ("shire", "shiren")
 # host uses.
 COLORS = {"arnor": "#3987e5", "gondor": "#d95926", "other clients": "#8f8e86",
           "shire": "#c98500", "shiren": "#9085e9",
+          "no errors": GOOD, "none": GOOD,
           "TEST_STATEID": "#d95926", "FREE_STATEID": "#199e70", "DELEGRETURN": "#3987e5",
           "OPEN": "#9085e9", "read": "#3987e5", "write": "#d95926"}
 pid = 0
@@ -88,6 +89,12 @@ def by_client(op):
         (f'sum by (host) (rate({client}{R}))', "{{host}}"),
         (f'clamp_min({ops(op)} - (sum(rate({client}{R})) or vector(0)), 0)', "other clients"))
 
+def or_none(expr, series, label):
+    """expr, plus a flat line at 0 named label while expr has nothing to draw,
+    so "No data" only ever means the check is broken."""
+    return targets((expr, "{{counter}}" if "counter" in expr else "{{client}} {{fs}}"),
+                   (f'sum(0 * {series}) unless on () ({expr})', label))
+
 LOG = {"scaleDistribution": {"type": "log", "log": 10}}
 NO_STEPS = [{"color": "text", "value": None}]
 USED_STEPS = [{"color": GOOD, "value": None}, {"color": WARN, "value": 0.8}, {"color": CRIT, "value": 0.9}]
@@ -99,29 +106,29 @@ panels += [
     stat("Requests", (0, y, 3, 4), [target(f'sum(rate(gadget_nfsd_rpc_calls_total{{{S}}}[5m]))', "per second", instant=True)],
          "NFS requests (RPC calls) per second over the last 5 minutes, every transport and client.",
          "reqps", NO_STEPS, 0),
-    stat("TEST_STATEID share", (3, y, 3, 4),
+    stat("TEST_STATEID share", (3, y, 4, 4),
          [target(f'100 * sum(increase(gadget_nfsd_ops_total{{{S}, op="TEST_STATEID"}}[5m])) / '
                  f'sum(increase(gadget_nfsd_ops_total{{{S}, op="SEQUENCE"}}[5m]))', "of requests", instant=True)],
          "TEST_STATEID operations as a percent of NFSv4.1 requests (one SEQUENCE each) over the last "
          "5 minutes. A client tests its stateids when the server flags that some of its state was "
          "revoked. Normally near 0; it was 65% averaged since shire last booted (Oct 2026).",
          "percent", [{"color": GOOD, "value": None}, {"color": WARN, "value": 5}, {"color": CRIT, "value": 25}], 0),
-    stat("Delegations held", (6, y, 5, 4),
+    stat("Delegations held", (7, y, 4, 4),
          [target(f'sum by (fs) (gadget_nfsd_delegations{{{S}}})', "{{fs}}", instant=True)],
          "Delegations shire has handed out and not had back, per filesystem (read and write).",
          "short", NO_STEPS, 0),
-    stat("Recalls in progress", (11, y, 3, 4),
+    stat("Recalls", (11, y, 3, 4),
          [target(f'sum(gadget_nfsd_delegations_breaking{{{S}}})', "now", instant=True)],
          "Delegations shire has asked a client to give back and is still waiting for (sampled every "
          "minute). Usually 0: clients answer quickly. A count that persists means clients are slow "
          "or not answering recalls, which is how delegations end up revoked.",
          "short", [{"color": GOOD, "value": None}, {"color": WARN, "value": 1}], 0),
-    stat("Threads in D", (14, y, 3, 4),
+    stat("Threads in D", (14, y, 4, 4),
          [target(f'gadget_nfsd_threads{{{S}, state="D"}}', "of 256", instant=True)],
          "nfsd threads in uninterruptible sleep, usually waiting on the disks. Requests queue once "
          "all 256 threads are busy.",
          "short", [{"color": GOOD, "value": None}, {"color": WARN, "value": 64}, {"color": CRIT, "value": 192}], 0),
-    stat("Space used", (17, y, 4, 4),
+    stat("Space used", (18, y, 3, 4),
          [target(f'1 - node_filesystem_avail_bytes{{{S}}} / node_filesystem_size_bytes{{{S}}}', "{{fs}}", instant=True)],
          "Share of each exported filesystem in use.", "percentunit", USED_STEPS, 0),
     stat("RDMA clients", (21, y, 3, 4),
@@ -181,11 +188,11 @@ panels += [
        "recalls every one of them at once.",
        "short", fixed=FS, decimals=0),
     ts("Stale file handles", (16, y, 8, 8),
-       [target(f'sum by (client, fs) (rate(gadget_nfsd_client_stale_filehandles_total{{{S}}}{R})) > 0',
-               "{{client}} {{fs}}")],
+       or_none(f'sum by (client, fs) (rate(gadget_nfsd_client_stale_filehandles_total{{{S}}}{R})) > 0',
+               f'gadget_nfsd_client_stale_filehandles_total{{{S}}}', "none"),
        "Requests per second answered with a stale file handle (the file was removed or the export "
-       "changed under the client), per client. Empty is good.",
-       "ops"),
+       "changed under the client), per client. A green \"none\" line at 0 when there were none.",
+       "ops", fixed=("none",)),
 ]
 y += 8
 
@@ -296,20 +303,23 @@ panels.append(row("RDMA link", y)); y += 1
 CONGESTION = "np_cnp_sent|rp_cnp_handled|np_ecn_marked_roce_packets|out_of_buffer|duplicate_request"
 panels += [
     ts("RDMA errors and retransmissions", (0, y, 12, 9),
-       [target(f'sum by (counter) (rate(gadget_rdma_hw_counter_total{{{S}, counter!~"{CONGESTION}"}}{R})) > 0', "{{counter}}")],
+       or_none(f'sum by (counter) (rate(gadget_rdma_hw_counter_total{{{S}, counter!~"{CONGESTION}"}}{R})) > 0',
+               f'gadget_rdma_hw_counter_total{{{S}, counter!~"{CONGESTION}"}}', "no errors"),
        "Events per second from shire's RDMA adapter (mlx5_bond_0), all clients together. "
        "packet_seq_err and out_of_sequence: packets lost or reordered on the way in. "
        "roce_adp_retrans: shire retransmitting. *_cqe_error and *_remote_access_errors: failed "
        "operations. The same counters on arnor and gondor (Hosts overview) show the other end of "
-       "each link. Empty means no errors.",
-       "cps", interval="5m"),
+       "each link. A green \"no errors\" line at 0 when nothing moved.",
+       "cps", interval="5m", fixed=("no errors",)),
     ts("RDMA congestion and receive drops", (12, y, 12, 9),
-       [target(f'sum by (counter) (rate(gadget_rdma_hw_counter_total{{{S}, counter=~"{CONGESTION}"}}{R})) > 0', "{{counter}}")],
+       or_none(f'sum by (counter) (rate(gadget_rdma_hw_counter_total{{{S}, counter=~"{CONGESTION}"}}{R})) > 0',
+               f'gadget_rdma_hw_counter_total{{{S}, counter=~"{CONGESTION}"}}', "none"),
        "Per second: congestion notifications shire sent (np_cnp_sent) and acted on "
        "(rp_cnp_handled), packets that arrived ECN-marked by the switch, requests a client "
        "repeated (duplicate_request), and packets dropped because nfsd hadn't posted a receive "
-       "buffer in time (out_of_buffer: shire falling behind). Empty means none.",
-       "cps", interval="5m"),
+       "buffer in time (out_of_buffer: shire falling behind). A green \"none\" line at 0 when "
+       "nothing moved.",
+       "cps", interval="5m", fixed=("none",)),
 ]
 y += 9
 

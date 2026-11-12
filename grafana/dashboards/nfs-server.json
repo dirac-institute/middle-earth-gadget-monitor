@@ -108,7 +108,7 @@
       "gridPos": {
         "x": 3,
         "y": 1,
-        "w": 3,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -178,9 +178,9 @@
         "uid": "victoriametrics"
       },
       "gridPos": {
-        "x": 6,
+        "x": 7,
         "y": 1,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -235,7 +235,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Recalls in progress",
+      "title": "Recalls",
       "description": "Delegations shire has asked a client to give back and is still waiting for (sampled every minute). Usually 0: clients answer quickly. A count that persists means clients are slow or not answering recalls, which is how delegations end up revoked.",
       "datasource": {
         "type": "prometheus",
@@ -312,7 +312,7 @@
       "gridPos": {
         "x": 14,
         "y": 1,
-        "w": 3,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -382,9 +382,9 @@
         "uid": "victoriametrics"
       },
       "gridPos": {
-        "x": 17,
+        "x": 18,
         "y": 1,
-        "w": 4,
+        "w": 3,
         "h": 4
       },
       "targets": [
@@ -1272,7 +1272,7 @@
       "id": 17,
       "type": "timeseries",
       "title": "Stale file handles",
-      "description": "Requests per second answered with a stale file handle (the file was removed or the export changed under the client), per client. Empty is good.",
+      "description": "Requests per second answered with a stale file handle (the file was removed or the export changed under the client), per client. A green \"none\" line at 0 when there were none.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1294,6 +1294,17 @@
           "refId": "A",
           "range": true,
           "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(0 * gadget_nfsd_client_stale_filehandles_total{host=\"shire\"}) unless on () (sum by (client, fs) (rate(gadget_nfsd_client_stale_filehandles_total{host=\"shire\"}[$__rate_interval])) > 0)",
+          "legendFormat": "none",
+          "refId": "B",
+          "range": true,
+          "instant": false
         }
       ],
       "fieldConfig": {
@@ -1311,7 +1322,23 @@
             "axisSoftMin": 0
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^none( |$)/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#0ca30c"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -3022,7 +3049,7 @@
       "id": 43,
       "type": "timeseries",
       "title": "RDMA errors and retransmissions",
-      "description": "Events per second from shire's RDMA adapter (mlx5_bond_0), all clients together. packet_seq_err and out_of_sequence: packets lost or reordered on the way in. roce_adp_retrans: shire retransmitting. *_cqe_error and *_remote_access_errors: failed operations. The same counters on arnor and gondor (Hosts overview) show the other end of each link. Empty means no errors.",
+      "description": "Events per second from shire's RDMA adapter (mlx5_bond_0), all clients together. packet_seq_err and out_of_sequence: packets lost or reordered on the way in. roce_adp_retrans: shire retransmitting. *_cqe_error and *_remote_access_errors: failed operations. The same counters on arnor and gondor (Hosts overview) show the other end of each link. A green \"no errors\" line at 0 when nothing moved.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -3044,6 +3071,17 @@
           "refId": "A",
           "range": true,
           "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(0 * gadget_rdma_hw_counter_total{host=\"shire\", counter!~\"np_cnp_sent|rp_cnp_handled|np_ecn_marked_roce_packets|out_of_buffer|duplicate_request\"}) unless on () (sum by (counter) (rate(gadget_rdma_hw_counter_total{host=\"shire\", counter!~\"np_cnp_sent|rp_cnp_handled|np_ecn_marked_roce_packets|out_of_buffer|duplicate_request\"}[$__rate_interval])) > 0)",
+          "legendFormat": "no errors",
+          "refId": "B",
+          "range": true,
+          "instant": false
         }
       ],
       "fieldConfig": {
@@ -3061,7 +3099,23 @@
             "axisSoftMin": 0
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^no errors( |$)/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#0ca30c"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -3080,7 +3134,7 @@
       "id": 44,
       "type": "timeseries",
       "title": "RDMA congestion and receive drops",
-      "description": "Per second: congestion notifications shire sent (np_cnp_sent) and acted on (rp_cnp_handled), packets that arrived ECN-marked by the switch, requests a client repeated (duplicate_request), and packets dropped because nfsd hadn't posted a receive buffer in time (out_of_buffer: shire falling behind). Empty means none.",
+      "description": "Per second: congestion notifications shire sent (np_cnp_sent) and acted on (rp_cnp_handled), packets that arrived ECN-marked by the switch, requests a client repeated (duplicate_request), and packets dropped because nfsd hadn't posted a receive buffer in time (out_of_buffer: shire falling behind). A green \"none\" line at 0 when nothing moved.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -3102,6 +3156,17 @@
           "refId": "A",
           "range": true,
           "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(0 * gadget_rdma_hw_counter_total{host=\"shire\", counter=~\"np_cnp_sent|rp_cnp_handled|np_ecn_marked_roce_packets|out_of_buffer|duplicate_request\"}) unless on () (sum by (counter) (rate(gadget_rdma_hw_counter_total{host=\"shire\", counter=~\"np_cnp_sent|rp_cnp_handled|np_ecn_marked_roce_packets|out_of_buffer|duplicate_request\"}[$__rate_interval])) > 0)",
+          "legendFormat": "none",
+          "refId": "B",
+          "range": true,
+          "instant": false
         }
       ],
       "fieldConfig": {
@@ -3119,7 +3184,23 @@
             "axisSoftMin": 0
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^none( |$)/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#0ca30c"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {

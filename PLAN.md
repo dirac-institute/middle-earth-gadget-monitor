@@ -84,7 +84,8 @@ Where the build differs from the original plan:
 - **Added after the plan: NFS server dashboard** (#37). Four shire-only
   checks (`nfsd`, `nfsd_delegations`, `nfsd_clients`, `nfs_disks`) read what
   an unprivileged user can see of nfsd, its delegations, its clients and the
-  two exported filesystems, onto **NFS server (shire)**. About 160 series.
+  two exported filesystems, onto **NFS server (shire)**. About 200 series,
+  with the five new RDMA counters on every host.
   Per-client NFS state, which would name the client behind a delegation
   storm, is root-only; see README.md, "NFS server".
 - **Added after the plan: Service VMs** (#19). Each service VM runs the
