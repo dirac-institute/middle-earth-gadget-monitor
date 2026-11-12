@@ -48,7 +48,7 @@ internals** shows an age under an hour.
 | `config/jupyterhubs.toml` | JupyterHubs the collector probes from this VM (see README.md, "JupyterHubs") |
 | `config/service_vms.toml` | Service VMs whose monitor the collector polls (see README.md, "Service VMs") |
 | `config/known_hosts` | Pinned SSH host keys for the targets |
-| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_postgres.py`, `gen_jupyterhub.py`, `gen_service_vms.py`, `gen_collector_internals.py`, `gen_metrics_storage.py`, `gen_users.py`, sharing `user_usage.py`) |
+| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_postgres.py`, `gen_jupyterhub.py`, `gen_service_vms.py`, `gen_collector_internals.py`, `gen_metrics_storage.py`, `gen_nfs_server.py`, `gen_users.py`, sharing `user_usage.py`) |
 | `monitoring/` | Service VM monitor image and its compose settings (`monitoring/compose.yaml`, pulled into `compose.yaml` with `extends`): this VM's CPU, memory and disks on port 9110. The same folder goes into other service repos; see `monitoring/README.md` |
 | `backup/` | Backup image: `backup-loop.sh` (scheduler), `backup-once.sh`, `restore.sh`, vmbackup/vmrestore binaries |
 | `dev-startup.sh` | Local development with Docker |

@@ -2492,7 +2492,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (counter) (rate(gadget_rdma_hw_counter_total{host=\"$host\"}[$__interval])) and on (counter) (sum by (counter) (increase(gadget_rdma_hw_counter_total{host=\"$host\"}[$__range] @ end())) > 0)",
+          "expr": "sum by (counter) (rate(gadget_rdma_hw_counter_total{host=\"$host\", counter=~\"packet_seq_err|out_of_sequence|local_ack_timeout_err|roce_adp_retrans|roce_slow_restart_cnps|req_remote_access_errors|req_cqe_error|resp_cqe_error\"}[$__interval])) and on (counter) (sum by (counter) (increase(gadget_rdma_hw_counter_total{host=\"$host\", counter=~\"packet_seq_err|out_of_sequence|local_ack_timeout_err|roce_adp_retrans|roce_slow_restart_cnps|req_remote_access_errors|req_cqe_error|resp_cqe_error\"}[$__range] @ end())) > 0)",
           "legendFormat": "{{counter}}",
           "refId": "A",
           "range": true
@@ -2502,7 +2502,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(0 * gadget_rdma_hw_counter_total{host=\"$host\"}) unless on () (sum(increase(gadget_rdma_hw_counter_total{host=\"$host\"}[$__range] @ end())) > 0)",
+          "expr": "sum(0 * gadget_rdma_hw_counter_total{host=\"$host\", counter=~\"packet_seq_err|out_of_sequence|local_ack_timeout_err|roce_adp_retrans|roce_slow_restart_cnps|req_remote_access_errors|req_cqe_error|resp_cqe_error\"}) unless on () (sum(increase(gadget_rdma_hw_counter_total{host=\"$host\", counter=~\"packet_seq_err|out_of_sequence|local_ack_timeout_err|roce_adp_retrans|roce_slow_restart_cnps|req_remote_access_errors|req_cqe_error|resp_cqe_error\"}[$__range] @ end())) > 0)",
           "legendFormat": "no errors",
           "refId": "B",
           "range": true

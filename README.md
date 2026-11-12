@@ -180,6 +180,10 @@ lines. On the Admin dashboard, tell it not to repeat usernames.
 | `vmstat` | `node_vmstat_{allocstall_*,pgscan_direct,pgsteal_direct,pgscan_kswapd,pgsteal_kswapd,oom_kill}` |
 | `users` | `gadget_user_cpu_seconds_total{user}`, `gadget_user_memory_bytes{user}`, `gadget_user_processes{user}` |
 | `jupyterhub` | `gadget_jupyterhub_processes{process}` (see "JupyterHubs") |
+| `nfsd` (shire only, every minute) | `gadget_nfsd_ops_total{op}`, `gadget_nfsd_rpc_{calls,bad_calls}_total`, `gadget_nfsd_requests_total{transport}`, `gadget_nfsd_tcp_connections_total`, `gadget_nfsd_{read,write}_bytes_total`, `gadget_nfsd_threads{state}`, `gadget_nfsd_threads_configured`, `gadget_nfsd_{packets_arrived,threads_woken,threads_timedout}_total` (see "NFS server") |
+| `nfsd_delegations` (shire only, every minute) | `gadget_nfsd_delegations{fs,type}`, `gadget_nfsd_delegations_breaking{fs}`, `gadget_nfsd_delegated_files_shared{fs}` |
+| `nfsd_clients` (shire only, every minute) | `gadget_nfsd_client_{read_bytes,write_bytes,stale_filehandles}_total{fs,export,client}`, `gadget_nfsd_client_connections{client,transport}` |
+| `nfs_disks` (shire only) | `node_disk_*{device,fs,level}` (node_exporter names), `gadget_xfs_{log_forces,log_force_sleeps,log_writes,log_space_waits,inode_cache_misses,read_calls,write_calls}_total{fs}`, `node_filesystem_{size,avail}_bytes{fs}`, `node_filesystem_files{,_free}{fs}` |
 | `users_gpu` (gondor only, every minute) | `gadget_user_gpu_memory_bytes{user}`, `gadget_user_gpu_percent{user}` |
 
 **`gpu`** makes one `nvidia-smi -q` call. GPU utilization is bursty and the
@@ -220,10 +224,12 @@ packets. Each reads `/proc` or `/sys` only and needs no root:
   minute to catch that.
 - `rdma` reports every RDMA port's state (`node_infiniband_*_id`, the
   kernel's numbers: state 4 is ACTIVE, physical state 3 is Disabled) and
-  eight of the adapter's hardware counters: packet_seq_err,
-  out_of_sequence, local_ack_timeout_err, roce_adp_retrans,
+  thirteen of the adapter's hardware counters: eight errors
+  (packet_seq_err, out_of_sequence, local_ack_timeout_err, roce_adp_retrans,
   roce_slow_restart_cnps, req_remote_access_errors, req_cqe_error and
-  resp_cqe_error. `mlx5_1` on arnor and gondor is not cabled and shows as
+  resp_cqe_error, on Hosts overview) and five for congestion and receive
+  drops (np_cnp_sent, rp_cnp_handled, np_ecn_marked_roce_packets,
+  out_of_buffer and duplicate_request, on NFS server). `mlx5_1` on arnor and gondor is not cabled and shows as
   Disabled. shire has a single bonded port, `mlx5_bond_0`.
 - `vmstat` is direct reclaim (allocations that had to stop and free memory
   themselves), pages scanned and reclaimed, and OOM kills, cumulative since
@@ -271,6 +277,45 @@ how long the login takes to become usable. The results are
 home directory), `shell` (session, login shell and profile until the command
 runs) and `total`. A login that hangs records only the stages it finished,
 and shows as `check="ssh_login"` timing out after 60 s.
+
+## NFS server
+
+shire is the NFS server for `/data/shire` (fs `shire`: `/data`, one 1.4 PB
+volume behind a MegaRAID controller) and `/nvme/shiren` (fs `shiren`:
+`/nvme`, RAID0 over two NVMe drives). Four checks run there as the
+unprivileged `astro-gadgetmon` (#37), and the **NFS server (shire)**
+dashboard shows them, with the two filesystems kept apart wherever the
+kernel allows:
+- `nfsd` (every minute): the server's request counters from
+  `/proc/net/rpc/nfsd` and `/proc/fs/nfsd/pool_stats`, and nfsd threads by
+  state. NFSv4 operations are named for a fixed set (including
+  TEST_STATEID, FREE_STATEID and DELEGRETURN, for the delegation storms),
+  the rest are OTHER. The kernel keeps these for the whole server, not per
+  export. Requests by transport are RDMA (everything but UDP and TCP) and
+  TCP (the service VMs).
+- `nfsd_delegations` (every minute): delegations held and being recalled
+  per filesystem, from `/proc/locks`, where nfsd lists each delegation as a
+  lease with its device and inode.
+- `nfsd_clients` (every minute): bytes and stale file handles per export
+  and client (`/proc/fs/nfsd/export_stats`; each entry restarts from zero
+  when the export cache refreshes it), and connections per client (RDMA
+  from `rdma res show cm_id`, TCP to port 2049). `client` is the short host
+  name.
+- `nfs_disks`: `/proc/diskstats` for each filesystem's device (and the NVMe
+  drives under shiren's md array, `level="member"`), XFS's per-filesystem
+  journal and inode cache counters, and space and inodes.
+
+Which client is behind a storm: per-client NFS state
+(`/proc/fs/nfsd/clients`) is root-only. The dashboard compares each
+monitored client's own TEST_STATEID and DELEGRETURN rate to shire and
+shiren (the `nfs` check on arnor and gondor) with the server's total; the
+difference is every other client together.
+
+Not available without root: per-client delegations and revoked state,
+nfsd's callback and recall trace events, the kernel's nfsd object counts,
+and the drives behind the MegaRAID volume. The kernel keeps no server-side
+latency or per-export operation counts at all; latency is only on the
+clients' side (Hosts overview, NFS rows).
 
 ## Websites
 
