@@ -56,7 +56,7 @@ Every column except the peaks sums active intervals only, so idle sessions add n
 - **Memory / GPU memory GiB-hours**: memory held × time held.
 - **GPU-hours**: GPU busy share × time (one GPU fully busy for an hour = 1). Sampled once a minute.
 
-root, jhub-admin, astro-gadget and system accounts are never collected. Thresholds live in
+root, jhub-admin, the monitor's own accounts and system accounts are never collected. Thresholds live in
 `grafana/user_usage.py`; history is reinterpreted when they change."""},
 }
 

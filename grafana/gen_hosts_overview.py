@@ -3,15 +3,15 @@
 
     python3 grafana/gen_hosts_overview.py > grafana/dashboards/hosts-overview.json
 
-Host colors are fixed per host (categorical slots 1-2, dark theme) so a host
+Host colors are fixed per host (categorical slots 1, 2 and 6, dark theme) so a host
 keeps its color in every panel; dashed lines are the secondary cue.
 """
 import json, sys
 import user_usage
 
 DS = {"type": "prometheus", "uid": "victoriametrics"}
-HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926"}  # dataviz categorical slots 1-2 (dark)
-# Login stages use the next slots (3-5) so they never borrow a host's color.
+HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926", "shire": "#008300"}  # dataviz categorical slots 1, 2, 6 (dark)
+# Login stages use slots 3-5 so they never borrow a host's color.
 STAGE_COLORS = {"connect": "#199e70", "auth": "#c98500", "shell": "#d55181"}
 # NFS ops take categorical slots 1-8 in order; OTHER is neutral gray, not a hue.
 OP_COLORS = {"READ": "#3987e5", "WRITE": "#d95926", "GETATTR": "#199e70", "LOOKUP": "#c98500",
@@ -95,7 +95,7 @@ panels.append(ts("CPU utilization", (0, y, 8, 9),
     "percent", host_overrides(), 0, 100))
 panels.append(ts("Load average", (8, y, 8, 9),
     [target(f'node_load1{{{H}}}', "{{host}} 1m"), target(f'node_load5{{{H}}}', "{{host}} 5m", "B")],
-    "1-minute (solid) and 5-minute (dashed) load averages. Compare with core counts: arnor 256, gondor 128.",
+    "1-minute (solid) and 5-minute (dashed) load averages. Compare with core counts: arnor 256, gondor 128, shire 32.",
     "short", host_overrides("5m")))
 panels.append(ts("Load per core", (16, y, 8, 9),
     [target(f'node_load1{{{H}}} / on (host) gadget_cpu_count{{{H}}}', "{{host}} 1m"),
@@ -135,8 +135,10 @@ panels.append(ts("Login time", (0, y, 24, 8),
     "Time for a brand-new interactive SSH login to reach a usable shell, probed every 5 minutes "
     "(every 15 after repeated timeouts). Timeouts (60 s) show as FAIL on ssh_login in Check status.",
     "s", host_overrides()))
-stages = panel("timeseries", "Login stages: $host", (0, y + 8, 24, 9),
-    [target(f'gadget_ssh_login_seconds{{host="$host", stage="{st}"}}', st, ref)
+# Repeated over $login_host (hosts with login probe data), not $host: shire
+# has no login probe (login_probe = false in hosts.toml).
+stages = panel("timeseries", "Login stages: $login_host", (0, y + 8, 24, 9),
+    [target(f'gadget_ssh_login_seconds{{host="$login_host", stage="{st}"}}', st, ref)
      for st, ref in (("connect", "A"), ("auth", "B"), ("shell", "C"))],
     "Where the login time goes, stacked. connect: DNS and TCP. auth: key exchange and authentication, "
     "which on these hosts reads ~/.ssh/authorized_keys from the NFS home directory. shell: session setup, "
@@ -149,7 +151,7 @@ stages = panel("timeseries", "Login stages: $host", (0, y + 8, 24, 9),
      "spanNulls": 600000, "axisSoftMin": 0, "stacking": {"mode": "normal", "group": "A"}},
     {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
      "tooltip": {"mode": "multi", "sort": "none"}},
-    extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2})
+    extra={"repeat": "login_host", "repeatDirection": "h", "maxPerRow": 2})
 panels.append(stages)
 y += 17
 
@@ -225,7 +227,7 @@ panels.append(panel("state-timeline", "RDMA port state", (16, y, 8, 8),
             "{{host}} {{device}}")],
     "State of each RDMA (RoCE) port, from /sys/class/infiniband. NFS to shire runs over RoCE. "
     "Disabled (gray) is a port whose link is disabled, normally because it isn't cabled: "
-    "mlx5_1 on arnor and gondor. Any other port that isn't ACTIVE is a problem.",
+    "mlx5_1 on arnor and gondor. shire has one port, the bond mlx5_bond_0. Any other port that isn't ACTIVE is a problem.",
     None, None, {"lineWidth": 0, "fillOpacity": 80},
     {"showValue": "never", "mergeValues": True, "rowHeight": 0.8,
      "legend": {"showLegend": False}, "tooltip": {"mode": "single"}},
@@ -271,9 +273,11 @@ panels.append(panel("timeseries", "RDMA errors and retransmissions: $host", (0, 
 y += 9
 
 panels.append(row("NFS queue wait by operation", y)); y += 1
+# Repeated over $nfs_host, not $host: shire is the server, not a client, and
+# would only add panels that are always empty.
 for i, fs in enumerate(NFS_FS):
-    sel = f'host="$host", fs="{fs}"'
-    panels.append(panel("timeseries", f"Queue wait by operation: $host, {fs}", (0, y + 9 * i, 24, 9),
+    sel = f'host="$nfs_host", fs="{fs}"'
+    panels.append(panel("timeseries", f"Queue wait by operation: $nfs_host, {fs}", (0, y + 9 * i, 24, 9),
         [target(per_call("queue", sel, "op"), "{{op}}")],
         f"Average client-side queue wait per call to {fs}, per NFS operation. OPEN includes "
         "OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, "
@@ -286,7 +290,7 @@ for i, fs in enumerate(NFS_FS):
          "spanNulls": 600000, "axisSoftMin": 0},
         {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
          "tooltip": {"mode": "multi", "sort": "desc"}},
-        extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2}))
+        extra={"repeat": "nfs_host", "repeatDirection": "h", "maxPerRow": 2}))
 y += 27
 
 def gpu_overrides(dash_suffix=None):
@@ -329,7 +333,7 @@ for i, (period, what) in enumerate((("1d", "day"), ("7d", "week"))):
         f"used {user_usage.CPU_CORES}+ CPU cores on average, or held {user_usage.MEM_BYTES / 2**30:g}+ GiB "
         f"of RAM, or kept a GPU {user_usage.GPU_PERCENT}%+ busy, or held "
         f"{user_usage.GPU_MEM_BYTES / 2**30:g}+ GiB of GPU memory. root, jhub-admin, "
-        "astro-gadget and system accounts are not counted.",
+        "the monitor's own accounts and system accounts are not counted.",
         "short",
         [{"matcher": {"id": "byName", "options": n},
           "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
@@ -344,7 +348,7 @@ y += 9
 dash = {
     "uid": "gadget-hosts-overview",
     "title": "Hosts overview",
-    "description": "arnor and gondor, sampled over SSH every 5 minutes by gadget-monitor.",
+    "description": "arnor, gondor and shire, sampled over SSH every 5 minutes by gadget-monitor.",
     "tags": ["gadget-monitor"],
     "schemaVersion": 41,
     "editable": False,
@@ -363,6 +367,18 @@ dash = {
         "query": {"query": "label_values(gadget_ssh_connected, host)", "refId": "host"},
         "definition": "label_values(gadget_ssh_connected, host)",
         "refresh": 2, "multi": True, "includeAll": True, "allValue": ".*",
+        "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}, {
+        # Hidden: the selected hosts with a login probe.
+        "name": "login_host", "label": "Login probe", "type": "query", "datasource": DS, "hide": 2,
+        "query": {"query": 'label_values(gadget_ssh_login_seconds{host=~"$host"}, host)', "refId": "login_host"},
+        "definition": 'label_values(gadget_ssh_login_seconds{host=~"$host"}, host)',
+        "refresh": 2, "multi": True, "includeAll": True,
+        "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}, {
+        # Hidden: the selected hosts that are NFS clients (run the nfs check).
+        "name": "nfs_host", "label": "NFS client", "type": "query", "datasource": DS, "hide": 2,
+        "query": {"query": 'label_values(gadget_nfs_ops_total{host=~"$host"}, host)', "refId": "nfs_host"},
+        "definition": 'label_values(gadget_nfs_ops_total{host=~"$host"}, host)',
+        "refresh": 2, "multi": True, "includeAll": True,
         "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}]},
     "panels": panels,
 }

@@ -11,7 +11,7 @@ overview (fixed per host, dark theme).
 import json, sys
 
 DS = {"type": "prometheus", "uid": "victoriametrics"}
-HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926"}  # as on Hosts overview
+HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926", "shire": "#008300"}  # as on Hosts overview
 GOOD, WARN, CRIT = "#0ca30c", "#fab219", "#d03b3b"
 pid = 0
 
@@ -111,7 +111,7 @@ panels = [
 dash = {
     "uid": "gadget-collector-internals",
     "title": "Gadget collector internals",
-    "description": "Whether gadget-monitor itself is working: check runs, SSH sessions to arnor and gondor, backups.",
+    "description": "Whether gadget-monitor itself is working: check runs, SSH sessions to each host, backups.",
     "tags": ["gadget-monitor"],
     "schemaVersion": 41,
     "editable": False,
