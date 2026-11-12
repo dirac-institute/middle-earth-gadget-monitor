@@ -75,20 +75,6 @@ def row(title, y, collapsed=False, panels=None):
     return {"id": pid, "type": "row", "title": title, "collapsed": collapsed,
             "gridPos": {"x": 0, "y": y, "w": 24, "h": 1}, "panels": panels or []}
 
-def state_mapping(on, off):
-    return [{"type": "value", "options": {
-        "1": {"text": on, "color": GOOD, "index": 0},
-        "0": {"text": off, "color": CRIT, "index": 1}}}]
-
-def state_timeline(title, grid, targets, desc, on, off):
-    return panel("state-timeline", title, grid, targets, desc, None, None,
-                 {"lineWidth": 0, "fillOpacity": 80},
-                 {"showValue": "never", "mergeValues": True, "rowHeight": 0.8,
-                  "legend": {"showLegend": False}, "tooltip": {"mode": "single"}},
-                 mappings=state_mapping(on, off),
-                 color={"mode": "thresholds"},
-                 thresholds={"mode": "absolute", "steps": [{"color": CRIT, "value": None}, {"color": GOOD, "value": 1}]})
-
 def stat(title, grid, targets, desc, unit, steps, mappings=None, legend_text=True, decimals=None):
     d = {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": steps}}
     if mappings: d["mappings"] = mappings
@@ -101,26 +87,6 @@ def stat(title, grid, targets, desc, unit, steps, mappings=None, legend_text=Tru
 H = 'host=~"$host"'
 panels = []
 y = 0
-panels.append(row("Health", y)); y += 1
-panels.append(state_timeline("Check status", (0, y, 12, 8),
-    [target(f'max by (host, check) (gadget_check_success{{{H}}})', "{{host}} / {{check}}")],
-    "Did each check run and exit successfully? FAIL covers errors, timeouts, skipped (still stuck from last run), and host unreachable. See 'Collector internals' for the reason.",
-    "OK", "FAIL"))
-panels.append(state_timeline("SSH session", (12, y, 6, 8),
-    [target(f'max by (host) (gadget_ssh_connected{{{H}}})', "{{host}}")],
-    "Whether the collector's persistent SSH session (and remote agent) is up.", "Connected", "Down"))
-panels.append(stat("Last backup", (18, y, 6, 4),
-    [target('time() - max(gadget_backup_last_success_timestamp_seconds{kind="latest"})', "hourly", instant=True),
-     target('time() - max(gadget_backup_last_success_timestamp_seconds{kind="daily"})', "daily", "B", instant=True)],
-    "Age of the newest complete backup on /service/shire. Hourly should stay under ~1h; daily under ~1d.",
-    "s", [{"color": GOOD, "value": None}, {"color": WARN, "value": 2 * 3600}, {"color": CRIT, "value": 26 * 3600}]))
-panels.append(stat("Storage", (18, y + 4, 6, 4),
-    [target('max(gadget_storage_bytes{location="local_vm"})', "local DB", instant=True),
-     target('max(gadget_storage_bytes{location="shire_backup"})', "shire backups", "B", instant=True)],
-    "Local database (limit 4.5 GiB; backups refuse above it) and total backup size on shire (hard budget 10 GB).",
-    "bytes", [{"color": GOOD, "value": None}, {"color": WARN, "value": 4e9}, {"color": CRIT, "value": 4.8e9}], decimals=1))
-y += 8
-
 panels.append(row("CPU and load", y)); y += 1
 panels.append(ts("CPU utilization", (0, y, 8, 9),
     [target(f'100 * (1 - sum by (host) (rate(gadget_cpu_seconds_total{{{H}, mode=~"idle|iowait"}}[$__interval])) '
@@ -375,28 +341,6 @@ for i, (period, what) in enumerate((("1d", "day"), ("7d", "week"))):
         extra={"timeFrom": "90d", "maxDataPoints": 3000}, decimals=0))
 y += 9
 
-internals = [
-    ts("Check duration", (0, y + 1, 12, 8),
-       [target(f'gadget_check_duration_seconds{{{H}}}', "{{host}} / {{check}}")],
-       "Wall time of each check on the target.", "s", host_overrides()),
-    ts("Check outcome by reason", (12, y + 1, 12, 8),
-       [target(f'sum by (host, status) (gadget_check_status{{{H}, status!="ok"}})', "{{host}} {{status}}")],
-       "Number of checks per host in each non-OK state: error, timeout, skipped_running (previous run still stuck), unreachable (no session), lost (session died mid-check).",
-       "short", host_overrides()),
-    ts("Clock skew", (0, y + 9, 8, 8),
-       [target(f'gadget_clock_skew_seconds{{{H}}}', "{{host}}")],
-       "Target clock minus collector clock, from ping round trips. Check timestamps use the target's clock.",
-       "s", host_overrides()),
-    ts("SSH reconnects", (8, y + 9, 8, 8),
-       [target(f'increase(gadget_ssh_reconnects_total{{{H}}}[1h])', "{{host}}")],
-       "Session drops per hour. Should be 0 in normal operation.", "short", host_overrides()),
-    ts("Lines dropped", (16, y + 9, 8, 8),
-       [target(f'gadget_check_lines_dropped{{{H}}} > 0', "{{host}} / {{check}}")],
-       "Malformed or excess (>500) output lines discarded by the collector. Empty is good.",
-       "short", host_overrides()),
-]
-panels.append(row("Collector internals", y, collapsed=True, panels=internals))
-
 dash = {
     "uid": "gadget-hosts-overview",
     "title": "Hosts overview",
@@ -409,6 +353,11 @@ dash = {
     "time": {"from": "now-24h", "to": "now"},
     "timepicker": {},
     "timezone": "browser",
+    # The collector's own health (check status, SSH sessions, backups) lives on
+    # its own dashboard so this landing page shows only the hosts (issue #32).
+    "links": [{"type": "link", "title": "Gadget collector internals", "icon": "dashboard",
+               "url": "/d/gadget-collector-internals", "keepTime": True, "includeVars": True,
+               "tooltip": "Check status, SSH sessions, backups", "targetBlank": False}],
     "templating": {"list": [{
         "name": "host", "label": "Host", "type": "query", "datasource": DS,
         "query": {"query": "label_values(gadget_ssh_connected, host)", "refId": "host"},
