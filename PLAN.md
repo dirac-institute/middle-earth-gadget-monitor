@@ -1,6 +1,7 @@
 # gadget-monitor: implementation plan
 
-A monitoring service for the `arnor` and `gondor` JupyterHub/compute hosts.
+A monitoring service for the `arnor` and `gondor` JupyterHub/compute hosts
+and `shire`, their NFS server.
 Checks run over SSH every few minutes, results go into a time-series
 database, and Grafana provides the graphs. Everything runs in containers on
 this VM, deployed the same way as the Middle-earth example this repo was
@@ -73,8 +74,12 @@ Where the build differs from the original plan:
   (`checks/rdma.sh`), direct-reclaim stalls (`checks/vmstat.sh`), and
   DELEGRETURN, TEST_STATEID and FREE_STATEID as named ops in `checks/nfs.sh`.
   About 70 series per host. The NFS inode cache size (`/proc/slabinfo`) needs
-  root and is not collected. **shire** is configured in `config/hosts.toml`
-  but commented out until astro-gadget can log in there.
+  root and is not collected.
+- **Added after the plan: shire as a host.** The NFS server is monitored like
+  the compute hosts, over the same key but as a local account
+  (`astro-gadgetmon`, the per-host `user` in `config/hosts.toml`), since
+  astro-gadget can't log in there. It runs cpu, load, memory, procs, rdma,
+  vmstat and users; nfs, jupyterhub and the GPU checks don't apply to it.
 - **Added after the plan: Service VMs** (#19). Each service VM runs the
   monitor from `monitoring/` (CPU, memory, disks and load, served on
   port 9110), and the collector polls every VM in `config/service_vms.toml`
@@ -121,6 +126,10 @@ Where the build differs from the original plan:
   not the login key): ED25519
   `SHA256:zyhxBFDUoeL8wNyXdFmCtsAvRIbJQwSFEgj3YFEISBU`. It's pinned in
   `config/known_hosts` and has been raised with the sysadmin.
+- shire (added 2026-11-12): 32 CPUs, 125 GiB RAM, 32 GiB swap,
+  python3 3.9.25. It presents the same host key. astro-gadget is refused
+  there; the key logs in as the local `astro-gadgetmon` (uid 1000, home on
+  local disk, so logins don't touch NFS).
 - `/service/shire` is a `hard`-mounted NFSv4.2 export of a 1.4 PB shared
   pool. No quota is visible, so we enforce the 10 GB limit ourselves.
 - `/local` on this VM is a separate 16 GB XFS partition.

@@ -1,7 +1,7 @@
 {
   "uid": "gadget-collector-internals",
   "title": "Gadget collector internals",
-  "description": "Whether gadget-monitor itself is working: check runs, SSH sessions to arnor and gondor, backups.",
+  "description": "Whether gadget-monitor itself is working: check runs, SSH sessions to each host, backups.",
   "tags": [
     "gadget-monitor"
   ],
@@ -469,6 +469,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -551,6 +566,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -639,6 +669,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -724,6 +769,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -806,6 +866,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]

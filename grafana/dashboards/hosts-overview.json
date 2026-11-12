@@ -1,7 +1,7 @@
 {
   "uid": "gadget-hosts-overview",
   "title": "Hosts overview",
-  "description": "arnor and gondor, sampled over SSH every 5 minutes by gadget-monitor.",
+  "description": "arnor, gondor and shire, sampled over SSH every 5 minutes by gadget-monitor.",
   "tags": [
     "gadget-monitor"
   ],
@@ -46,6 +46,34 @@
         "multi": true,
         "includeAll": true,
         "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1
+      },
+      {
+        "name": "nfs_host",
+        "label": "NFS client",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "hide": 2,
+        "query": {
+          "query": "label_values(gadget_nfs_ops_total{host=~\"$host\"}, host)",
+          "refId": "nfs_host"
+        },
+        "definition": "label_values(gadget_nfs_ops_total{host=~\"$host\"}, host)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
         "current": {
           "selected": true,
           "text": [
@@ -144,6 +172,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -163,7 +206,7 @@
       "id": 3,
       "type": "timeseries",
       "title": "Load average",
-      "description": "1-minute (solid) and 5-minute (dashed) load averages. Compare with core counts: arnor 256, gondor 128.",
+      "description": "1-minute (solid) and 5-minute (dashed) load averages. Compare with core counts: arnor 256, gondor 128, shire 32.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -235,6 +278,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -347,6 +405,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -479,6 +552,21 @@
           {
             "matcher": {
               "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
               "options": "/total$/"
             },
             "properties": [
@@ -577,6 +665,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -668,6 +771,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -865,6 +983,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -1091,6 +1224,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -1172,6 +1320,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -1259,6 +1422,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -1340,6 +1518,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -1427,6 +1620,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -1508,6 +1716,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -1608,6 +1831,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -1689,6 +1927,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -1777,6 +2030,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
           }
         ]
       },
@@ -1858,6 +2126,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
                 }
               }
             ]
@@ -1985,6 +2268,21 @@
           {
             "matcher": {
               "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
               "options": "/ shire$/"
             },
             "properties": [
@@ -2036,7 +2334,7 @@
       "id": 26,
       "type": "state-timeline",
       "title": "RDMA port state",
-      "description": "State of each RDMA (RoCE) port, from /sys/class/infiniband. NFS to shire runs over RoCE. Disabled (gray) is a port whose link is disabled, normally because it isn't cabled: mlx5_1 on arnor and gondor. Any other port that isn't ACTIVE is a problem.",
+      "description": "State of each RDMA (RoCE) port, from /sys/class/infiniband. NFS to shire runs over RoCE. Disabled (gray) is a port whose link is disabled, normally because it isn't cabled: mlx5_1 on arnor and gondor. shire has one port, the bond mlx5_bond_0. Any other port that isn't ACTIVE is a problem.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -2364,7 +2662,7 @@
     {
       "id": 29,
       "type": "timeseries",
-      "title": "Queue wait by operation: $host, helios",
+      "title": "Queue wait by operation: $nfs_host, helios",
       "description": "Average client-side queue wait per call to helios, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
       "datasource": {
         "type": "prometheus",
@@ -2382,7 +2680,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (op) (label_replace(rate(gadget_nfs_queue_seconds_total{host=\"$host\", fs=\"helios\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\")) / sum by (op) (label_replace(rate(gadget_nfs_ops_total{host=\"$host\", fs=\"helios\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\"))",
+          "expr": "sum by (op) (label_replace(rate(gadget_nfs_queue_seconds_total{host=\"$nfs_host\", fs=\"helios\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\")) / sum by (op) (label_replace(rate(gadget_nfs_ops_total{host=\"$nfs_host\", fs=\"helios\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\"))",
           "legendFormat": "{{op}}",
           "refId": "A",
           "range": true
@@ -2549,14 +2847,14 @@
           "sort": "desc"
         }
       },
-      "repeat": "host",
+      "repeat": "nfs_host",
       "repeatDirection": "h",
       "maxPerRow": 2
     },
     {
       "id": 30,
       "type": "timeseries",
-      "title": "Queue wait by operation: $host, shire",
+      "title": "Queue wait by operation: $nfs_host, shire",
       "description": "Average client-side queue wait per call to shire, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
       "datasource": {
         "type": "prometheus",
@@ -2574,7 +2872,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (op) (label_replace(rate(gadget_nfs_queue_seconds_total{host=\"$host\", fs=\"shire\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\")) / sum by (op) (label_replace(rate(gadget_nfs_ops_total{host=\"$host\", fs=\"shire\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\"))",
+          "expr": "sum by (op) (label_replace(rate(gadget_nfs_queue_seconds_total{host=\"$nfs_host\", fs=\"shire\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\")) / sum by (op) (label_replace(rate(gadget_nfs_ops_total{host=\"$nfs_host\", fs=\"shire\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\"))",
           "legendFormat": "{{op}}",
           "refId": "A",
           "range": true
@@ -2741,14 +3039,14 @@
           "sort": "desc"
         }
       },
-      "repeat": "host",
+      "repeat": "nfs_host",
       "repeatDirection": "h",
       "maxPerRow": 2
     },
     {
       "id": 31,
       "type": "timeseries",
-      "title": "Queue wait by operation: $host, shiren",
+      "title": "Queue wait by operation: $nfs_host, shiren",
       "description": "Average client-side queue wait per call to shiren, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
       "datasource": {
         "type": "prometheus",
@@ -2766,7 +3064,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (op) (label_replace(rate(gadget_nfs_queue_seconds_total{host=\"$host\", fs=\"shiren\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\")) / sum by (op) (label_replace(rate(gadget_nfs_ops_total{host=\"$host\", fs=\"shiren\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\"))",
+          "expr": "sum by (op) (label_replace(rate(gadget_nfs_queue_seconds_total{host=\"$nfs_host\", fs=\"shiren\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\")) / sum by (op) (label_replace(rate(gadget_nfs_ops_total{host=\"$nfs_host\", fs=\"shiren\"}[$__interval]), \"op\", \"OTHER\", \"op\", \"TEST_STATEID|FREE_STATEID\"))",
           "legendFormat": "{{op}}",
           "refId": "A",
           "range": true
@@ -2933,7 +3231,7 @@
           "sort": "desc"
         }
       },
-      "repeat": "host",
+      "repeat": "nfs_host",
       "repeatDirection": "h",
       "maxPerRow": 2
     },
@@ -3277,7 +3575,7 @@
       "id": 37,
       "type": "timeseries",
       "title": "Users per day",
-      "description": "Distinct users on the selected hosts in each day (Pacific time; the last bar is the day so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, astro-gadget and system accounts are not counted.",
+      "description": "Distinct users on the selected hosts in each day (Pacific time; the last bar is the day so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, the monitor's own accounts and system accounts are not counted.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -3376,7 +3674,7 @@
       "id": 38,
       "type": "timeseries",
       "title": "Users per week",
-      "description": "Distinct users on the selected hosts in each week (Pacific time, weeks start Monday; the last bar is the week so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, astro-gadget and system accounts are not counted.",
+      "description": "Distinct users on the selected hosts in each week (Pacific time, weeks start Monday; the last bar is the week so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, the monitor's own accounts and system accounts are not counted.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"

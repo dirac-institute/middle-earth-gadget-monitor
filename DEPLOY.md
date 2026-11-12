@@ -24,12 +24,12 @@ Then verify:
 
 ```bash
 podman ps                                   # five gadget-monitor-* containers, Up
-podman logs gadget-monitor-collector        # "arnor: agent up ...", "gondor: agent up ..."
+podman logs gadget-monitor-collector        # "<host>: agent up ..." for arnor, gondor, shire
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/   # 200
 ```
 
 Open the site, check that the **Hosts overview** dashboard shows data for
-both hosts, and that the **Last backup** tile on **Gadget collector
+every host, and that the **Last backup** tile on **Gadget collector
 internals** shows an age under an hour.
 
 ## What each piece does
@@ -83,7 +83,7 @@ podman compose up -d --build --force-recreate
 you also pass `--force-recreate`.
 
 The database and Grafana state live on `/local`, so recreating containers
-loses nothing. Restarting the collector reconnects to both hosts within a
+loses nothing. Restarting the collector reconnects to every host within a
 second or two. The agents from the old sessions exit when their session
 closes.
 
@@ -158,16 +158,17 @@ podman compose up -d
 
 1. `podman ps`: five containers `Up`. Run it again a minute later and check
    the uptimes haven't reset.
-2. `podman logs gadget-monitor-collector`: `agent up` for both hosts, with
+2. `podman logs gadget-monitor-collector`: `agent up` for every host, with
    no repeated `connect failed`.
-3. Dashboards: **Hosts overview** has data for both hosts; on **Gadget
-   collector internals** every check is `OK` and both SSH sessions
+3. Dashboards: **Hosts overview** has data for every host; on **Gadget
+   collector internals** every check is `OK` and every SSH session
    `Connected`. **Websites** shows every site `Up`, or a reason under
    "Failures by reason" that matches what a browser sees. **JupyterHub**
    shows both hubs `Up`, and the hub and proxy `Running` on both hosts.
    **Service VMs** shows the monitor `Up` for every VM in
    `config/service_vms.toml`.
-4. On a target, `ps -u astro-gadget -f` should show exactly one
+4. On a target, `ps -u astro-gadget -f` (on shire, `ps -u astro-gadgetmon -f`)
+   should show exactly one
    `python3 -I -u -c import sys;...` agent.
 5. **Last backup** (Gadget collector internals) shows under an hour after the first `:07`.
 6. `podman logs gadget-monitor-grafana` says `Admin folder restricted to

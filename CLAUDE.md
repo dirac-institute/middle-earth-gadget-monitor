@@ -1,6 +1,6 @@
 # gadget-monitor: notes for agents
 
-SSH-based monitoring of `arnor` and `gondor`: check scripts run on the targets,
+SSH-based monitoring of `arnor`, `gondor` and `shire`: check scripts run on the targets,
 results go to VictoriaMetrics and are graphed in Grafana. Read `README.md`
 first (how it works, how to add a check), then `DEPLOY.md` (deploying,
 verifying, troubleshooting) and `PLAN.md` (design and the size budget) as

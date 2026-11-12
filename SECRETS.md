@@ -27,7 +27,10 @@ sudo -u astro-gadget install -m 0600 /path/to/new-password \
 ## The SSH key
 
 - The key is dedicated to this service. It gives only an unprivileged login
-  as astro-gadget on `arnor` and `gondor`, and nothing else.
+  as astro-gadget on `arnor` and `gondor`, and as the local account
+  astro-gadgetmon (uid 1000) on `shire`, and nothing else. shire is the NFS
+  server behind `/service/shire`, but uid 1000 there can't read the secrets
+  or backups: they belong to astro-gadget (uid 1734450), mode 0600.
 - The collector reads it once at startup and keeps a copy on its own tmpfs
   (`/dev/shm` inside the container), so reconnects never wait on NFS. The
   copy disappears when the container stops.
