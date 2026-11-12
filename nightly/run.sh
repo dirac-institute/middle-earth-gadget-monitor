@@ -1,15 +1,17 @@
 #!/bin/bash
-# Nightly issue worker, run by cron as root (see nightly/crontab).
+# Nightly issue worker, run by cron (see nightly/crontab). Project settings
+# (paths, repo, live stack) are in nightly.conf; this script is the same for
+# every project.
 #
-# Starts a background Claude Code session (named nightly-<date>-1) in a
-# separate clone of the repo with nightly/prompt.md: it picks one actionable
+# Starts a background Claude Code session (named <SESSION_PREFIX>-<date>-1)
+# in a separate clone of the repo with nightly/prompt.md: it picks one actionable
 # open issue (or review feedback on one of its own PRs), works on it, tests by
-# deploying its branch to the live stack, and opens a PR. Once the session has
+# deploying its branch to the live stack (if there is one), and opens a PR. Once the session has
 # sat idle for IDLE_STOP minutes, or the time limit is reached, it is stopped
 # and the live stack is put back exactly as it was if anything about it
 # changed.
 #
-# Then, while the night lasts, it starts another session (nightly-<date>-2,
+# Then, while the night lasts, it starts another session (<prefix>-<date>-2,
 # -3, ...) on a freshly reset clone if all of these hold:
 #   - the last session's summary ended "NIGHTLY_RESULT: worked" (see
 #     prompt.md), so there may be more to do;
@@ -19,26 +21,23 @@
 #   - fewer than MAX_SESSIONS have run.
 #
 # Watch it, live or afterwards, in a full Claude Code window:
-#   claude attach nightly-<date>-<n>
+#   claude attach <SESSION_PREFIX>-<date>-<n>
 # Anything typed there goes to the agent. Idle time while you're attached
 # counts toward IDLE_STOP, so a long pause ends the session.
 #
-# The live checkout is never modified. The prompt and settings are read from
-# it, so only reviewed, merged-and-pulled versions of them ever run.
+# The live checkout (LIVE) is never modified. This script, the prompt and the
+# settings are read from it, so only reviewed, merged-and-pulled versions of
+# them ever run.
 #
-# Logs: /root/gadget-nightly/logs/<date>.log (this script plus each session's
-# final summary). Plan usage snapshots: /root/gadget-nightly/usage.jsonl.
+# Logs: $WORK/logs/<date>.log (this script plus each session's final
+# summary). Plan usage snapshots: $WORK/usage.jsonl.
 #
-# One-time setup, done by hand in a root terminal: accept the bypass-permissions
-# disclaimer (IS_SANDBOX=1 claude --dangerously-skip-permissions) and trust
-# /root/gadget-nightly/repo (run `claude` there once). Background sessions
-# refuse to start without both.
+# One-time setup, done by hand as the user cron runs this as: accept the
+# bypass-permissions disclaimer (IS_SANDBOX=1 claude
+# --dangerously-skip-permissions) and trust $WORK/repo (run `claude` there
+# once). Background sessions refuse to start without both. See README.md.
 set -uo pipefail
 
-LIVE=/root/middle-earth-gadget-monitor
-WORK=/root/gadget-nightly
-REPO="$WORK/repo"
-REPO_URL=https://github.com/dirac-institute/middle-earth-gadget-monitor.git
 TIME_LIMIT_S=$((5 * 3600))   # for the whole night, all sessions together
 IDLE_STOP=10        # minutes
 USAGE_EVERY=10      # minutes between plan usage snapshots
@@ -47,8 +46,17 @@ MAX_SESSIONS=4
 LOG_DAYS=60
 DATE="$(date +%F)"
 
-export HOME=/root
-export PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+# Project settings: LIVE, REPO_URL, WORK, SESSION_PREFIX, LIVE_LABEL,
+# RESTORE_CMD, COPY_FILES (and overrides of the limits above).
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=nightly.conf disable=SC1091
+source "$DIR/nightly.conf"
+REPO="$WORK/repo"
+
+: "${HOME:?HOME must be set (cron sets it)}"
+export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export NIGHTLY_USAGE_FILE="$WORK/usage.jsonl"
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 mkdir -p "$WORK/logs"
 exec >>"$WORK/logs/$DATE.log" 2>&1
@@ -59,8 +67,10 @@ log() { echo "$(date -u +%FT%TZ) nightly: $*"; }
 
 # What is running now: container, image, and the checkout it was deployed from.
 # Deploying from the clone changes the last field even if the images match.
+# Empty, and so never changed, for a project with no live stack.
 live_state() {
-    podman ps -a --filter label=idac.service=gadget-monitor \
+    [ -n "$LIVE_LABEL" ] || return 0
+    podman ps -a --filter "label=$LIVE_LABEL" \
         --format '{{.Names}} {{.ImageID}} {{.State}} {{index .Labels "com.docker.compose.project.working_dir"}}' \
         | sort
 }
@@ -86,13 +96,13 @@ print(s[-1].get(sys.argv[2], "") if s else "")' "$NAME" "$1"
 # directory, which is a worktree of the clone once the agent has entered one,
 # so look in every project and take the newest.
 final_summary() {
-    python3 - "$1" <<'EOF'
+    python3 - "$1" "$CLAUDE_DIR" <<'EOF'
 import glob, json, os, sys
 last = marked = ""
-paths = glob.glob(f"/root/.claude/projects/*/{sys.argv[1]}.jsonl")
+paths = glob.glob(f"{sys.argv[2]}/projects/*/{sys.argv[1]}.jsonl")
 try:
     if not paths:
-        raise OSError(f"{sys.argv[1]}.jsonl not found under /root/.claude/projects")
+        raise OSError(f"{sys.argv[1]}.jsonl not found under {sys.argv[2]}/projects")
     for line in open(max(paths, key=os.path.getmtime)):
         try:
             e = json.loads(line)
@@ -113,7 +123,7 @@ EOF
 
 # Plan usage, recorded in $WORK/usage.jsonl (see usage.py).
 usage_snap() {
-    log "$(python3 "$LIVE/nightly/usage.py" snap "$NAME" "$1" 2>&1)"
+    log "$(python3 "$DIR/usage.py" snap "$NAME" "$1" 2>&1)"
 }
 
 # Stop the current session (if one is running) and record its end.
@@ -127,7 +137,7 @@ end_session() {
 finish() {
     end_session
     restore_live
-    log "plan usage by session:"$'\n'"$(python3 "$LIVE/nightly/usage.py" report 2>&1)"
+    log "plan usage by session:"$'\n'"$(python3 "$DIR/usage.py" report 2>&1)"
 }
 
 restore_live() {
@@ -136,14 +146,14 @@ restore_live() {
         return
     fi
     log "live stack changed; redeploying from $LIVE"
-    (cd "$LIVE" && podman compose up -d --build --force-recreate) || log "ERROR: redeploy failed"
+    (cd "$LIVE" && bash -c "$RESTORE_CMD") || log "ERROR: redeploy failed"
     sleep 60
-    podman ps --filter label=idac.service=gadget-monitor --format '{{.Names}} {{.Status}}'
+    podman ps --filter "label=$LIVE_LABEL" --format '{{.Names}} {{.Status}}'
     # Expect every container that was running before the night to be up again,
     # rather than a fixed count that goes stale when a service is added.
     local want have
     want="$(grep -c ' running ' <<<"$BEFORE")"
-    have="$(podman ps -q --filter label=idac.service=gadget-monitor | wc -l)"
+    have="$(podman ps -q --filter "label=$LIVE_LABEL" | wc -l)"
     if [ "$have" -lt "$want" ]; then
         log "ERROR: $have containers up after the redeploy; $want were running before"
         return 1
@@ -163,7 +173,54 @@ reset_clone() {
         log "ERROR: could not reset the clone"
         return 1
     fi
-    cp "$LIVE/.env" .env
+    local f
+    for f in "${COPY_FILES[@]}"; do
+        cp "$LIVE/$f" "$f" || { log "ERROR: could not copy $f from $LIVE"; return 1; }
+    done
+}
+
+# The prompt: a section describing this project, from nightly.conf, then
+# prompt.md, which is the same for every project.
+build_prompt() {
+    local repo="${REPO_URL#https://github.com/}"
+    repo="${repo%.git}"
+    echo "## This project"
+    echo
+    echo "- Repository: $repo."
+    echo "- The live checkout is \`$LIVE\`. Never edit it or run git there."
+    if [ "${#COPY_FILES[@]}" -gt 0 ]; then
+        echo "- Your working directory is a fresh clone at \`origin/main\`, with" \
+             "${COPY_FILES[*]} copied from the live checkout."
+    else
+        echo "- Your working directory is a fresh clone at \`origin/main\`."
+    fi
+    if [ -n "$LIVE_LABEL" ]; then
+        cat <<EOF
+- The live stack is deployed from the live checkout. The wrapper that started
+  you puts it back exactly as it was once your session ends (it stops the
+  session after you've been idle a few minutes), so you are free to deploy
+  your branch from the clone to test it, as CLAUDE.md describes. Still leave
+  things tidy: if you finish early, put it back yourself
+  (\`cd $LIVE && $RESTORE_CMD\`) and check it comes back up.
+EOF
+    else
+        echo "- There is no live stack. Test the way CLAUDE.md describes."
+    fi
+    echo
+    cat "$DIR/prompt.md"
+}
+
+# The settings: settings.json's deny rules, plus rules keeping the agent out
+# of the live checkout.
+build_settings() {
+    python3 - "$DIR/settings.json" "$LIVE" <<'EOF'
+import json, sys
+settings = json.load(open(sys.argv[1]))
+live = sys.argv[2].rstrip("/")
+settings.setdefault("permissions", {}).setdefault("deny", []).extend(
+    [f"Bash(git -C {live}:*)", f"Edit(/{live}/**)"])
+print(json.dumps(settings, indent=2))
+EOF
 }
 
 # Run session number $1 to its end: start it, wait until it has been idle for
@@ -171,14 +228,15 @@ reset_clone() {
 # its summary. Sets RESULT to the summary's NIGHTLY_RESULT value ("" if there
 # is none, "timeout" if the time limit cut it off).
 run_session() {
-    NAME="nightly-$DATE-$1"
+    NAME="$SESSION_PREFIX-$DATE-$1"
     RESULT=
     usage_snap start
     log "starting session $NAME at $(git rev-parse --short HEAD)"
     # IS_SANDBOX=1: Claude Code otherwise refuses to skip permission prompts as
     # root. The deny rules in settings.json still apply.
+    build_settings > "$WORK/settings.json" || { log "ERROR: could not build settings"; return 1; }
     IS_SANDBOX=1 claude --bg -n "$NAME" --permission-mode bypassPermissions \
-        --settings "$LIVE/nightly/settings.json" "$(cat "$LIVE/nightly/prompt.md")" \
+        --settings "$WORK/settings.json" "$(build_prompt)" \
         || { log "ERROR: could not start the session"; return 1; }
     ID="$(session_field id)"
     local sid
@@ -239,7 +297,7 @@ while :; do
         log "under $NEXT_MIN_LEFT minutes left; done for the night"
         break
     fi
-    room="$(python3 "$LIVE/nightly/usage.py" room 2>&1)"
+    room="$(python3 "$DIR/usage.py" room 2>&1)"
     ok=$?
     log "$room"
     [ "$ok" -eq 0 ] || break
