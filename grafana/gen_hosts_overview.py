@@ -248,7 +248,8 @@ y += 8
 # A counter is drawn over the whole range if it moved anywhere in it, so a lone
 # 5-minute burst still gets a line (a single non-null point draws nothing). A
 # quiet host gets a "no errors" line, so "No data" only means the check is broken.
-rdma = 'gadget_rdma_hw_counter_total{host="$host"}'
+# Only the error counters; the congestion ones are on the NFS server dashboard.
+rdma = f'gadget_rdma_hw_counter_total{{host="$host", counter=~"{"|".join(RDMA_COUNTERS)}"}}'
 moved = f'increase({rdma}[$__range] @ end())'
 panels.append(panel("timeseries", "RDMA errors and retransmissions: $host", (0, y, 24, 9),
     [target(f'sum by (counter) (rate({rdma}[$__interval])) and on (counter) (sum by (counter) ({moved}) > 0)',

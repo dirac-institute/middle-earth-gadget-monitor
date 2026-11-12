@@ -35,7 +35,8 @@ There is no test suite. Test against the real thing:
   `gen_postgres.py > dashboards/postgres.json`,
   `gen_jupyterhub.py > dashboards/jupyterhub.json`,
   `gen_collector_internals.py > dashboards/collector-internals.json`,
-  `gen_metrics_storage.py > dashboards/metrics-storage.json` and
+  `gen_metrics_storage.py > dashboards/metrics-storage.json`,
+  `gen_nfs_server.py > dashboards/nfs-server.json` and
   `gen_users.py > dashboards-admin/users.json`). Deploy, then check the
   panels: `tools/panel_data.py <uid>` prints what each panel would draw (as
   text, cheap), and `tools/screenshot.sh` shows how it looks, when layout or
