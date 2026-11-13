@@ -1780,7 +1780,7 @@
     {
       "id": 20,
       "type": "row",
-      "title": "Stuck processes, NFS state and RDMA",
+      "title": "Stuck processes, NFS state, RDMA and kernel log",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -2676,19 +2676,238 @@
     },
     {
       "id": 28,
+      "type": "timeseries",
+      "title": "Kernel log messages: $host",
+      "description": "Kernel log (dmesg) messages of a few known kinds, per interval; only kinds seen in the time range are drawn, and a green \"no messages\" line at 0 when none were. hung_task: a process stuck in D state for 2+ minutes. lockup: a CPU stuck in the kernel, or an RCU stall. kernel_bug: BUG, Oops or WARNING. hardware_error: machine checks and ECC memory errors. io_error: failed disk I/O. nfs_not_responding: an NFS server stopped answering. nfs_recall_any: a server asked for delegations back (only logged while NFS callback debugging is on). rdma_error: failed RDMA operations (QP errors, error CQEs). OOM kills are not here: they are node_vmstat_oom_kill. Read the messages themselves with dmesg on the host.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 81,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (kind) (increase(gadget_kernel_log_messages_total{host=\"$host\"}[$__interval])) and on (kind) (sum by (kind) (increase(gadget_kernel_log_messages_total{host=\"$host\"}[$__range] @ end())) > 0)",
+          "legendFormat": "{{kind}}",
+          "refId": "A",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(0 * gadget_kernel_log_messages_total{host=\"$host\"}) unless on () (sum(increase(gadget_kernel_log_messages_total{host=\"$host\"}[$__range] @ end())) > 0)",
+          "legendFormat": "no messages",
+          "refId": "B",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisSoftMin": 0,
+            "axisSoftMax": 1
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "hung_task"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lockup"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kernel_bug"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "hardware_error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "io_error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "nfs_not_responding"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "nfs_recall_any"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rdma_error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#e66767"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "no messages"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#0ca30c"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.spanNulls",
+                "value": 600000
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "repeat": "host",
+      "repeatDirection": "h",
+      "maxPerRow": 3
+    },
+    {
+      "id": 29,
       "type": "row",
       "title": "NFS queue wait by operation",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 81,
+        "y": 89,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 29,
+      "id": 30,
       "type": "timeseries",
       "title": "Queue wait by operation: $nfs_host, helios",
       "description": "Average client-side queue wait per call to helios, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
@@ -2698,7 +2917,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 82,
+        "y": 90,
         "w": 24,
         "h": 9
       },
@@ -2880,7 +3099,7 @@
       "maxPerRow": 2
     },
     {
-      "id": 30,
+      "id": 31,
       "type": "timeseries",
       "title": "Queue wait by operation: $nfs_host, shire",
       "description": "Average client-side queue wait per call to shire, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
@@ -2890,7 +3109,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 91,
+        "y": 99,
         "w": 24,
         "h": 9
       },
@@ -3072,7 +3291,7 @@
       "maxPerRow": 2
     },
     {
-      "id": 31,
+      "id": 32,
       "type": "timeseries",
       "title": "Queue wait by operation: $nfs_host, shiren",
       "description": "Average client-side queue wait per call to shiren, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
@@ -3082,7 +3301,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 100,
+        "y": 108,
         "w": 24,
         "h": 9
       },
@@ -3264,20 +3483,20 @@
       "maxPerRow": 2
     },
     {
-      "id": 32,
+      "id": 33,
       "type": "row",
       "title": "GPUs (gondor)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 109,
+        "y": 117,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 33,
+      "id": 34,
       "type": "timeseries",
       "title": "GPU memory free",
       "description": "Free GPU memory (solid) against each GPU's total (dashed), sampled every minute. The driver keeps about 0.6 GB per GPU for itself, so free never quite reaches total.",
@@ -3287,7 +3506,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 110,
+        "y": 118,
         "w": 9,
         "h": 9
       },
@@ -3389,7 +3608,7 @@
       }
     },
     {
-      "id": 34,
+      "id": 35,
       "type": "timeseries",
       "title": "GPU utilization",
       "description": "Percent of time a GPU kernel was running, from the driver's samples over the ~14 s before each once-a-minute check: average (solid) and peak (dashed). Covers about a quarter of the time, so short bursts between checks can be missed.",
@@ -3399,7 +3618,7 @@
       },
       "gridPos": {
         "x": 9,
-        "y": 110,
+        "y": 118,
         "w": 9,
         "h": 9
       },
@@ -3503,7 +3722,7 @@
       }
     },
     {
-      "id": 35,
+      "id": 36,
       "type": "timeseries",
       "title": "GPU processes",
       "description": "Number of processes holding each GPU (they may hold memory without computing).",
@@ -3513,7 +3732,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 110,
+        "y": 118,
         "w": 6,
         "h": 9
       },
@@ -3587,20 +3806,20 @@
       }
     },
     {
-      "id": 36,
+      "id": 37,
       "type": "row",
       "title": "Users",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 119,
+        "y": 127,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 37,
+      "id": 38,
       "type": "timeseries",
       "title": "Users per day",
       "description": "Distinct users on the selected hosts in each day (Pacific time; the last bar is the day so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, the monitor's own accounts and system accounts are not counted.",
@@ -3610,7 +3829,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 120,
+        "y": 128,
         "w": 12,
         "h": 9
       },
@@ -3699,7 +3918,7 @@
       "maxDataPoints": 3000
     },
     {
-      "id": 38,
+      "id": 39,
       "type": "timeseries",
       "title": "Users per week",
       "description": "Distinct users on the selected hosts in each week (Pacific time, weeks start Monday; the last bar is the week so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, the monitor's own accounts and system accounts are not counted.",
@@ -3709,7 +3928,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 120,
+        "y": 128,
         "w": 12,
         "h": 9
       },

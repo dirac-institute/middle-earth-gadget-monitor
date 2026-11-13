@@ -73,13 +73,16 @@ Where the build differs from the original plan:
   (`checks/procs.sh`, every minute), RDMA port state and error counters
   (`checks/rdma.sh`), direct-reclaim stalls (`checks/vmstat.sh`), and
   DELEGRETURN, TEST_STATEID and FREE_STATEID as named ops in `checks/nfs.sh`.
-  About 70 series per host. The NFS inode cache size (`/proc/slabinfo`) needs
-  root and is not collected.
+  About 70 series per host. Later, kernel log messages of eight kinds
+  (`checks/kernel_log.sh`: hung tasks, lockups, kernel bugs, hardware and
+  I/O errors, NFS server not responding, RECALL_ANY callbacks, RDMA errors),
+  8 series per host. The NFS inode cache size (`/proc/slabinfo`) needs root
+  and is not collected.
 - **Added after the plan: shire as a host.** The NFS server is monitored like
   the compute hosts, over the same key but as a local account
   (`astro-gadgetmon`, the per-host `user` in `config/hosts.toml`), since
   astro-gadget can't log in there. It runs cpu, load, memory, procs, rdma,
-  vmstat and users; nfs, jupyterhub and the GPU checks don't apply to it.
+  vmstat, users and kernel_log; nfs, jupyterhub and the GPU checks don't apply to it.
   It has no login probe (`login_probe = false`): users don't log in there.
 - **Added after the plan: NFS server dashboard** (#37). Four shire-only
   checks (`nfsd`, `nfsd_delegations`, `nfsd_clients`, `nfs_disks`) read what
