@@ -297,7 +297,13 @@ panels.append(panel("timeseries", "Kernel log messages: $host", (0, y, 24, 8),
     "short",
     [{"matcher": {"id": "byName", "options": k},
       "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": col}}]}
-     for k, col in {**KLOG_KINDS, "no messages": GOOD}.items()],
+     for k, col in KLOG_KINDS.items()]
+    # A bar of height 0 is invisible, so "no messages" is a line.
+    + [{"matcher": {"id": "byName", "options": "no messages"},
+        "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": GOOD}},
+                       {"id": "custom.drawStyle", "value": "line"},
+                       {"id": "custom.lineWidth", "value": 2},
+                       {"id": "custom.spanNulls", "value": 600000}]}],
     {"drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "showPoints": "never",
      "stacking": {"mode": "normal", "group": "A"}, "axisSoftMin": 0, "axisSoftMax": 1},
     {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
