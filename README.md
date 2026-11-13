@@ -178,6 +178,7 @@ lines. On the Admin dashboard, tell it not to repeat usernames.
 | `procs` (every minute) | `gadget_processes{state}`, `gadget_nfs_state_manager_threads` |
 | `rdma` | `node_infiniband_state_id{device,port}`, `node_infiniband_physical_state_id{device,port}`, `gadget_rdma_hw_counter_total{device,port,counter}` |
 | `vmstat` | `node_vmstat_{allocstall_*,pgscan_direct,pgsteal_direct,pgscan_kswapd,pgsteal_kswapd,oom_kill}` |
+| `kernel_log` (every minute) | `gadget_kernel_log_messages_total{kind}` |
 | `users` | `gadget_user_cpu_seconds_total{user}`, `gadget_user_memory_bytes{user}`, `gadget_user_processes{user}` |
 | `jupyterhub` | `gadget_jupyterhub_processes{process}` (see "JupyterHubs") |
 | `nfsd` (shire only, every minute) | `gadget_nfsd_ops_total{op}`, `gadget_nfsd_rpc_{calls,bad_calls}_total`, `gadget_nfsd_requests_total{transport}`, `gadget_nfsd_tcp_connections_total`, `gadget_nfsd_{read,write}_bytes_total`, `gadget_nfsd_threads{state}`, `gadget_nfsd_threads_configured`, `gadget_nfsd_{packets_arrived,threads_woken,threads_timedout}_total` (see "NFS server") |
@@ -212,10 +213,10 @@ A call is only counted when it finishes, so a hung server shows as a gap in
 these graphs rather than a spike. `gadget_nfs_rpc_*` are the client-wide
 totals from `/proc/net/rpc/nfs`, for every NFS server.
 
-**`procs`**, **`rdma`** and **`vmstat`** were added after the November 2026
-NFS outage (#28), in which Jupyter kernels hung in uninterruptible sleep, a
-client looped on NFSv4 state recovery and the RoCE links to shire lost
-packets. Each reads `/proc` or `/sys` only and needs no root:
+**`procs`**, **`rdma`**, **`vmstat`** and **`kernel_log`** were added after
+the November 2026 NFS outage (#28), in which Jupyter kernels hung in
+uninterruptible sleep, a client looped on NFSv4 state recovery and the RoCE
+links to shire lost packets. None of them needs root:
 - `procs` counts processes (not threads) by the first letter of their state
   (always R, S, D and Z; others when present), and the NFSv4 client's
   `<server address>-manager` kernel threads. A manager thread exists only
@@ -235,10 +236,26 @@ packets. Each reads `/proc` or `/sys` only and needs no root:
   themselves), pages scanned and reclaimed, and OOM kills, cumulative since
   boot.
 
+- `kernel_log` counts kernel log (dmesg) messages of eight kinds: `hung_task`
+  (blocked for more than 2 minutes), `lockup` (soft or hard lockups, RCU
+  stalls), `kernel_bug` (BUG, Oops, WARNING), `hardware_error` (machine
+  checks, EDAC memory errors), `io_error`, `nfs_not_responding`,
+  `nfs_recall_any` and `rdma_error` (mlx5 QP errors and error CQEs). Only the
+  kernel's own messages count, not what userspace writes to the log. The
+  kernel log is a ring buffer and its timestamps drift from the clock, so
+  the check goes by each message's sequence number in `/dev/kmsg`: it keeps
+  the last one seen and the running totals in
+  `/dev/shm/gadget-kernel-log.<uid>` on the host, which makes the metric a
+  real counter. It starts at 0 from the end of the log on a new boot or when
+  that file is gone, so messages from before the check first ran aren't
+  counted. RECALL_ANY callbacks are only logged while NFS callback debugging
+  is on (`rpcdebug -m nfs -s callback`, as during the outage). Reading
+  `/dev/kmsg` needs `kernel.dmesg_restrict = 0`, which all three hosts have;
+  where it doesn't hold, the check fails (status error) instead of reporting
+  zeros.
+
 Not collected: the NFS inode cache size (`/proc/slabinfo` and
-`/sys/kernel/slab` are root-only), and RECALL_ANY callbacks from `dmesg`
-(readable, but the kernel log is a ring buffer, so a count of matching lines
-is neither a gauge nor a counter).
+`/sys/kernel/slab` are root-only on arnor and gondor).
 
 **`users`** reads systemd's per-user cgroups
 (`/sys/fs/cgroup/user.slice/user-<uid>.slice`), which hold every login and
