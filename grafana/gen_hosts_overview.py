@@ -27,6 +27,11 @@ RDMA_COUNTERS = {"packet_seq_err": "#3987e5", "out_of_sequence": "#d95926",
                  "local_ack_timeout_err": "#199e70", "roce_adp_retrans": "#c98500",
                  "roce_slow_restart_cnps": "#d55181", "req_remote_access_errors": "#008300",
                  "req_cqe_error": "#9085e9", "resp_cqe_error": "#e66767"}
+# Kernel log message kinds (checks/kernel_log.sh) take slots 1-8, in a panel
+# repeated per host like the RDMA counters.
+KLOG_KINDS = {"hung_task": "#3987e5", "lockup": "#d95926", "kernel_bug": "#199e70",
+              "hardware_error": "#c98500", "io_error": "#d55181", "nfs_not_responding": "#008300",
+              "nfs_recall_any": "#9085e9", "rdma_error": "#e66767"}
 NFS_FS = ("helios", "shire", "shiren")
 # GPUs (gondor only) take slots 3 and 7: never a host's color, and far apart.
 GPU_COLORS = {"gpu0": "#199e70", "gpu1": "#9085e9"}
@@ -185,7 +190,7 @@ for i, fs in enumerate(NFS_FS):
         "s", host_overrides()))
 y += 16
 
-panels.append(row("Stuck processes, NFS state and RDMA", y)); y += 1
+panels.append(row("Stuck processes, NFS state, RDMA and kernel log", y)); y += 1
 panels.append(ts("Processes in D state", (0, y, 8, 8),
     [target(f'gadget_processes{{{H}, state="D"}}', "{{host}}")],
     "Processes in uninterruptible sleep (state D), sampled every minute. These are usually "
@@ -272,6 +277,34 @@ panels.append(panel("timeseries", "RDMA errors and retransmissions: $host", (0, 
      "tooltip": {"mode": "multi", "sort": "desc"}},
     extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2}))
 y += 9
+# Same "moved in the range" rule as the RDMA panel. Bars of messages per
+# interval: these are rare, and a rate per second of 0.003 reads badly.
+klog = 'gadget_kernel_log_messages_total{host="$host"}'
+kmoved = f'increase({klog}[$__range] @ end())'
+panels.append(panel("timeseries", "Kernel log messages: $host", (0, y, 24, 8),
+    [target(f'sum by (kind) (increase({klog}[$__interval])) and on (kind) (sum by (kind) ({kmoved}) > 0)',
+            "{{kind}}"),
+     target(f'sum(0 * {klog}) unless on () (sum({kmoved}) > 0)', "no messages", "B")],
+    "Kernel log (dmesg) messages of a few known kinds, per interval; only kinds seen in the "
+    "time range are drawn, and a green \"no messages\" line at 0 when none were. "
+    "hung_task: a process stuck in D state for 2+ minutes. lockup: a CPU stuck in the kernel, "
+    "or an RCU stall. kernel_bug: BUG, Oops or WARNING. hardware_error: machine checks and "
+    "ECC memory errors. io_error: failed disk I/O. nfs_not_responding: an NFS server stopped "
+    "answering. nfs_recall_any: a server asked for delegations back (only logged while NFS "
+    "callback debugging is on). rdma_error: failed RDMA operations (QP errors, error CQEs). "
+    "OOM kills are not here: they are node_vmstat_oom_kill. Read the messages themselves with "
+    "dmesg on the host.",
+    "short",
+    [{"matcher": {"id": "byName", "options": k},
+      "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": col}}]}
+     for k, col in {**KLOG_KINDS, "no messages": GOOD}.items()],
+    {"drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "showPoints": "never",
+     "stacking": {"mode": "normal", "group": "A"}, "axisSoftMin": 0, "axisSoftMax": 1},
+    {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
+     "tooltip": {"mode": "multi", "sort": "desc"}},
+    decimals=0,
+    extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 3}))
+y += 8
 
 panels.append(row("NFS queue wait by operation", y)); y += 1
 # Repeated over $nfs_host, not $host: shire is the server, not a client, and

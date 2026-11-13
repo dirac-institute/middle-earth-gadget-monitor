@@ -26,6 +26,6 @@ address = "gondor.astro.washington.edu"
 name = "shire"
 address = "shire.astro.washington.edu"
 user = "astro-gadgetmon"
-checks = ["cpu", "load", "memory", "procs", "rdma", "vmstat", "users",
+checks = ["cpu", "load", "memory", "procs", "rdma", "vmstat", "users", "kernel_log",
           "nfsd", "nfsd_delegations", "nfsd_clients", "nfs_disks"]
 login_probe = false
