@@ -2453,8 +2453,8 @@
     {
       "id": 35,
       "type": "timeseries",
-      "title": "Space and inodes used: shire",
-      "description": "Share of shire's space (available to users) and inodes in use.",
+      "title": "Space used: shire",
+      "description": "Space in use on shire (solid) against its size (dashed). Used is size minus what users can still write, so the gap is exactly the space left.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -2462,7 +2462,7 @@
       "gridPos": {
         "x": 0,
         "y": 110,
-        "w": 12,
+        "w": 6,
         "h": 8
       },
       "targets": [
@@ -2471,8 +2471,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - node_filesystem_avail_bytes{host=\"shire\", fs=\"shire\"} / node_filesystem_size_bytes{host=\"shire\", fs=\"shire\"}",
-          "legendFormat": "space",
+          "expr": "node_filesystem_size_bytes{host=\"shire\", fs=\"shire\"} - node_filesystem_avail_bytes{host=\"shire\", fs=\"shire\"}",
+          "legendFormat": "used",
           "refId": "A",
           "range": true,
           "instant": false
@@ -2482,8 +2482,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - node_filesystem_files_free{host=\"shire\", fs=\"shire\"} / node_filesystem_files{host=\"shire\", fs=\"shire\"}",
-          "legendFormat": "inodes",
+          "expr": "node_filesystem_size_bytes{host=\"shire\", fs=\"shire\"}",
+          "legendFormat": "total",
           "refId": "B",
           "range": true,
           "instant": false
@@ -2491,12 +2491,11 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "bytes",
           "color": {
-            "mode": "palette-classic"
+            "mode": "fixed",
+            "fixedColor": "#c98500"
           },
-          "min": 0,
-          "max": 1,
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
@@ -2506,7 +2505,26 @@
             "axisSoftMin": 0
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -2523,6 +2541,95 @@
     },
     {
       "id": 36,
+      "type": "timeseries",
+      "title": "Inodes used: shire",
+      "description": "Inodes (files and directories) in use on shire (solid) against how many it could hold (dashed). XFS creates inodes as needed, so its total follows the free space and falls as the filesystem fills.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 110,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_filesystem_files{host=\"shire\", fs=\"shire\"} - node_filesystem_files_free{host=\"shire\", fs=\"shire\"}",
+          "legendFormat": "used",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_filesystem_files{host=\"shire\", fs=\"shire\"}",
+          "legendFormat": "total",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#c98500"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 360000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "5m"
+    },
+    {
+      "id": 37,
       "type": "timeseries",
       "title": "I/O operations: shiren",
       "description": "Reads and writes per second on shiren's block device.",
@@ -2622,7 +2729,7 @@
       "interval": "5m"
     },
     {
-      "id": 37,
+      "id": 38,
       "type": "timeseries",
       "title": "Throughput: shiren",
       "description": "Bytes per second read from and written to shiren's block device.",
@@ -2722,7 +2829,7 @@
       "interval": "5m"
     },
     {
-      "id": 38,
+      "id": 39,
       "type": "timeseries",
       "title": "Wait per I/O: shiren",
       "description": "Average time per read and per write on shiren's block device, queueing included.",
@@ -2822,7 +2929,7 @@
       "interval": "5m"
     },
     {
-      "id": 39,
+      "id": 40,
       "type": "timeseries",
       "title": "Busy: shiren",
       "description": "Share of time shiren's disks had I/O in flight: each NVMe drive for shiren, the one MegaRAID volume for shire (whose drives the kernel can't see; 100% there doesn't mean every drive is busy).",
@@ -2882,7 +2989,7 @@
       "interval": "5m"
     },
     {
-      "id": 40,
+      "id": 41,
       "type": "timeseries",
       "title": "XFS journal: shiren",
       "description": "Per second: log forces (waits for the journal to reach disk, from fsync and NFS COMMIT), the ones that had to sleep, and transactions stalled because the journal was full (normally 0).",
@@ -2962,10 +3069,10 @@
       "interval": "5m"
     },
     {
-      "id": 41,
+      "id": 42,
       "type": "timeseries",
-      "title": "Space and inodes used: shiren",
-      "description": "Share of shiren's space (available to users) and inodes in use.",
+      "title": "Space used: shiren",
+      "description": "Space in use on shiren (solid) against its size (dashed). Used is size minus what users can still write, so the gap is exactly the space left.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -2973,7 +3080,7 @@
       "gridPos": {
         "x": 12,
         "y": 110,
-        "w": 12,
+        "w": 6,
         "h": 8
       },
       "targets": [
@@ -2982,8 +3089,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - node_filesystem_avail_bytes{host=\"shire\", fs=\"shiren\"} / node_filesystem_size_bytes{host=\"shire\", fs=\"shiren\"}",
-          "legendFormat": "space",
+          "expr": "node_filesystem_size_bytes{host=\"shire\", fs=\"shiren\"} - node_filesystem_avail_bytes{host=\"shire\", fs=\"shiren\"}",
+          "legendFormat": "used",
           "refId": "A",
           "range": true,
           "instant": false
@@ -2993,8 +3100,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - node_filesystem_files_free{host=\"shire\", fs=\"shiren\"} / node_filesystem_files{host=\"shire\", fs=\"shiren\"}",
-          "legendFormat": "inodes",
+          "expr": "node_filesystem_size_bytes{host=\"shire\", fs=\"shiren\"}",
+          "legendFormat": "total",
           "refId": "B",
           "range": true,
           "instant": false
@@ -3002,12 +3109,11 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "bytes",
           "color": {
-            "mode": "palette-classic"
+            "mode": "fixed",
+            "fixedColor": "#9085e9"
           },
-          "min": 0,
-          "max": 1,
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
@@ -3017,7 +3123,26 @@
             "axisSoftMin": 0
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -3033,7 +3158,96 @@
       "interval": "5m"
     },
     {
-      "id": 42,
+      "id": 43,
+      "type": "timeseries",
+      "title": "Inodes used: shiren",
+      "description": "Inodes (files and directories) in use on shiren (solid) against how many it could hold (dashed). XFS creates inodes as needed, so its total follows the free space and falls as the filesystem fills.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 110,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_filesystem_files{host=\"shire\", fs=\"shiren\"} - node_filesystem_files_free{host=\"shire\", fs=\"shiren\"}",
+          "legendFormat": "used",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_filesystem_files{host=\"shire\", fs=\"shiren\"}",
+          "legendFormat": "total",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#9085e9"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 360000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "5m"
+    },
+    {
+      "id": 44,
       "type": "row",
       "title": "RDMA link",
       "collapsed": false,
@@ -3046,7 +3260,7 @@
       }
     },
     {
-      "id": 43,
+      "id": 45,
       "type": "timeseries",
       "title": "RDMA errors and retransmissions",
       "description": "Events per second from shire's RDMA adapter (mlx5_bond_0), all clients together. packet_seq_err and out_of_sequence: packets lost or reordered on the way in. roce_adp_retrans: shire retransmitting. *_cqe_error and *_remote_access_errors: failed operations. The same counters on arnor and gondor (Hosts overview) show the other end of each link. A green \"no errors\" line at 0 when nothing moved.",
@@ -3131,7 +3345,7 @@
       "interval": "5m"
     },
     {
-      "id": 44,
+      "id": 46,
       "type": "timeseries",
       "title": "RDMA congestion and receive drops",
       "description": "Per second: congestion notifications shire sent (np_cnp_sent) and acted on (rp_cnp_handled), packets that arrived ECN-marked by the switch, requests a client repeated (duplicate_request), and packets dropped because nfsd hadn't posted a receive buffer in time (out_of_buffer: shire falling behind). A green \"none\" line at 0 when nothing moved.",

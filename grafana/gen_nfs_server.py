@@ -79,6 +79,18 @@ def stat(title, grid, targets, desc, unit, steps, decimals=None):
                   "colorMode": "value", "graphMode": "none", "textMode": "value_and_name",
                   "justifyMode": "auto", "orientation": "horizontal"}, **d)
 
+def capacity(title, grid, fs, total, free, desc, unit):
+    """Used (solid) against total (dashed), both in the filesystem's color: the
+    resource runs out where the lines meet."""
+    sel = f'{S}, fs="{fs}"'
+    p = ts(title, grid, targets((f'{total}{{{sel}}} - {free}{{{sel}}}', "used"), (f'{total}{{{sel}}}', "total")),
+           desc, unit, interval="5m")
+    p["fieldConfig"]["defaults"]["color"] = {"mode": "fixed", "fixedColor": COLORS[fs]}
+    p["fieldConfig"]["overrides"].append(
+        {"matcher": {"id": "byName", "options": "total"},
+         "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 6]}}]})
+    return p
+
 def ops(op, sel=S):
     return f'sum(rate(gadget_nfsd_ops_total{{{sel}, op="{op}"}}{R}))'
 
@@ -291,11 +303,15 @@ for i, fs in enumerate(FS):
            "the ones that had to sleep, and transactions stalled because the journal was full "
            "(normally 0).",
            "ops", interval="5m"),
-        ts(f"Space and inodes used: {fs}", (x, y + 40, 12, 8),
-           targets((f'1 - node_filesystem_avail_bytes{{{S}, fs="{fs}"}} / node_filesystem_size_bytes{{{S}, fs="{fs}"}}', "space"),
-                   (f'1 - node_filesystem_files_free{{{S}, fs="{fs}"}} / node_filesystem_files{{{S}, fs="{fs}"}}', "inodes")),
-           f"Share of {fs}'s space (available to users) and inodes in use.",
-           "percentunit", interval="5m", min=0, max=1),
+        capacity(f"Space used: {fs}", (x, y + 40, 6, 8), fs, "node_filesystem_size_bytes",
+                 "node_filesystem_avail_bytes",
+                 f"Space in use on {fs} (solid) against its size (dashed). Used is size minus what "
+                 "users can still write, so the gap is exactly the space left.", "bytes"),
+        capacity(f"Inodes used: {fs}", (x + 6, y + 40, 6, 8), fs, "node_filesystem_files",
+                 "node_filesystem_files_free",
+                 f"Inodes (files and directories) in use on {fs} (solid) against how many it "
+                 "could hold (dashed). XFS creates inodes as needed, so its total follows the "
+                 "free space and falls as the filesystem fills.", "short"),
     ]
 y += 48
 
