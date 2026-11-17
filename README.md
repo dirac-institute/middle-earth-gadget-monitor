@@ -185,7 +185,7 @@ lines. On the Admin dashboard, tell it not to repeat usernames.
 | `nfsd_clients` (shire only, every minute) | `gadget_nfsd_client_{read_bytes,write_bytes,stale_filehandles}_total{fs,export,client}`, `gadget_nfsd_client_connections{client,transport}` |
 | `nfs_disks` (shire only) | `node_disk_*{device,fs,level}` (node_exporter names), `gadget_xfs_{log_forces,log_force_sleeps,log_writes,log_space_waits,inode_cache_misses,read_calls,write_calls}_total{fs}`, `node_filesystem_{size,avail}_bytes{fs}`, `node_filesystem_files{,_free}{fs}` |
 | `users_gpu` (gondor only, every minute) | `gadget_user_gpu_memory_bytes{user}`, `gadget_user_gpu_percent{user}` |
-| `conda` (arnor and gondor; built from `config/conda.toml`, see "Conda probe") | `gadget_conda_seconds{env,stage,package}`, `gadget_conda_success{env}` |
+| `conda` (arnor and gondor; see "Conda probe") | `gadget_conda_seconds{env,stage,package}`, `gadget_conda_success{env}` |
 
 **`gpu`** makes one `nvidia-smi -q` call. GPU utilization is bursty and the
 driver keeps no cumulative busy counter, so the check reports the average and
@@ -279,7 +279,7 @@ home directory), `shell` (session, login shell and profile until the command
 runs) and `total`. A login that hangs records only the stages it finished,
 and shows as `check="ssh_login"` timing out after 60 s.
 
-**Conda probe** (#43; not a file in `checks/`): every 5 minutes, on arnor and
+**Conda probe** (#43; the `conda` check): every 5 minutes, on arnor and
 gondor, how long a user waits to get a conda environment's Python going, on
 each of three storage locations: shire
 (`/astro/store/shire/@Service/gadget/conda-probe`), shiren
@@ -292,16 +292,15 @@ after another, the probe times:
   runs conda's own Python from that location;
 - `python`: starting the environment's `python3` until it prints (its
   `sys.prefix`, which proves it is the environment's);
-- `import`: importing each package in `packages` in `config/conda.toml`
+- `import`: importing each package in `PACKAGES` in `checks/conda.sh`
   (`lsdb`), one interpreter, timed per package (`package` label);
 - `total`: all of the above, recorded only when every stage succeeded.
 
 `gadget_conda_success{env}` is 1 when a location got through every stage
-within `env_timeout` (60 s); a location that hangs records only the stages it
-finished. The collector builds the check from `config/conda.toml` and
-`conda/probe.sh` and runs it through the persistent session like any other
-(`check="conda"` in the collector's check status); it does not log in afresh,
-so it never includes the login time. Results are on Hosts overview, "Python
+within `ENV_TIMEOUT` (60 s); a location that hangs records only the stages it
+finished. It is an ordinary check, run through the persistent session, so it
+does not log in afresh and never includes the login time. The locations
+(`ENVS`) and packages are set at the top of `checks/conda.sh`. Results are on Hosts overview, "Python
 and conda startup".
 
 The environments are built by `init.sh`, which runs `conda/setup.sh` over SSH
@@ -310,8 +309,9 @@ targets, and a conda install can't be copied: its own path is written into
 it). The script installs Miniconda if it is missing, creates the environment
 if it is missing, and updates it when `conda/environment.yml` has changed;
 otherwise it changes nothing. To add a package to the probe: add it to
-`conda/environment.yml` and to `packages`, run `sudo ./init.sh`, then rebuild
-the collector. To add a location: add an `[[env]]` to `config/conda.toml`,
+`conda/environment.yml` and to `PACKAGES`, run `sudo ./init.sh`, then rebuild
+the collector. To add a location: add a `name=dir` line to `ENVS` in
+`checks/conda.sh` (the timeout line needs about 65 s more per location),
 run `init.sh`, rebuild the collector and regenerate the Hosts overview
 dashboard (it has a line of stage panels per location). To rebuild one
 location by hand:

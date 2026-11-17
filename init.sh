@@ -165,22 +165,23 @@ fi
 
 # ── Conda probe environments ───────────────────────────────────────────────
 # The conda probe (README.md, "Conda probe") needs its environment in every
-# location in config/conda.toml. Those paths exist only on the targets, so
+# location in checks/conda.sh. Those paths exist only on the targets, so
 # conda/setup.sh runs there, over SSH, as the account the collector uses. It
 # leaves an environment that is already up to date alone.
 echo
 echo "== Conda probe environments =="
-# Prints the login for the first host in conda.toml, then one dir per line.
-mapfile -t conda_cfg < <(python3 - "$REPO_DIR/config" <<'EOF'
-import sys, tomllib
+# Prints the login for the check's first host, then one dir per line.
+mapfile -t conda_cfg < <(python3 - "$REPO_DIR" <<'EOF'
+import re, sys, tomllib
 from pathlib import Path
-cfg = Path(sys.argv[1])
-conda = tomllib.loads((cfg / "conda.toml").read_text())
-hosts = tomllib.loads((cfg / "hosts.toml").read_text())
-h = next(h for h in hosts["host"] if h["name"] == conda["hosts"][0])
+repo = Path(sys.argv[1])
+check = (repo / "checks" / "conda.sh").read_text()
+first = re.search(r"^# hosts:\s*(\S+)", check, re.M).group(1)
+hosts = tomllib.loads((repo / "config" / "hosts.toml").read_text())
+h = next(h for h in hosts["host"] if h["name"] == first)
 print(f"{h.get('user', hosts['user'])}@{h['address']}")
-for e in conda["env"]:
-    print(e["dir"])
+envs = re.search(r"^ENVS=\((.*?)^\)", check, re.M | re.S).group(1)
+print("\n".join(re.findall(r"^\s+\w+=(/\S+)$", envs, re.M)))
 EOF
 )
 env_yml="$(base64 -w0 "$REPO_DIR/conda/environment.yml")"

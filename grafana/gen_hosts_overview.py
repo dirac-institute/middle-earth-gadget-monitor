@@ -6,7 +6,7 @@
 Host colors are fixed per host (categorical slots 1, 2 and 6, dark theme) so a host
 keeps its color in every panel; dashed lines are the secondary cue.
 """
-import json, sys, tomllib
+import json, re, sys
 from pathlib import Path
 import user_usage
 
@@ -18,7 +18,10 @@ STAGE_COLORS = {"connect": "#199e70", "auth": "#c98500", "shell": "#d55181"}
 # by line style, as NFS filesystems are (shire solid).
 CONDA_STAGE_COLORS = {"activate": "#199e70", "python": "#c98500", "import": "#d55181"}
 CONDA_STYLES = {"shiren": {"fill": "dot", "dash": [2, 4]}, "home": {"fill": "dash", "dash": [10, 6]}}
-CONDA = tomllib.loads((Path(__file__).resolve().parent.parent / "config" / "conda.toml").read_text())
+# The conda check's locations and per-location timeout, from the check itself.
+CONDA_CHECK = (Path(__file__).resolve().parent.parent / "checks" / "conda.sh").read_text()
+CONDA_ENVS = re.findall(r"^\s+(\w+)=/", re.search(r"^ENVS=\((.*?)^\)", CONDA_CHECK, re.M | re.S).group(1), re.M)
+CONDA_ENV_TIMEOUT = int(re.search(r"^ENV_TIMEOUT=(\d+)", CONDA_CHECK, re.M).group(1))
 # NFS ops take categorical slots 1-8 in order; OTHER is neutral gray, not a hue.
 OP_COLORS = {"READ": "#3987e5", "WRITE": "#d95926", "GETATTR": "#199e70", "LOOKUP": "#c98500",
              "ACCESS": "#d55181", "OPEN": "#008300", "CLOSE": "#9085e9", "DELEGRETURN": "#e66767",
@@ -161,21 +164,21 @@ stages = panel("timeseries", "Login stages: $login_host", (0, y + 8, 24, 9),
 panels.append(stages)
 y += 17
 
-# The conda probe (config/conda.toml) runs on arnor and gondor only: the
+# The conda probe (checks/conda.sh) runs on arnor and gondor only: the
 # stage panels repeat over $conda_host, one line of them per location.
 panels.append(row("Python and conda startup", y)); y += 1
 panels.append(ts("Conda startup time", (0, y, 24, 8),
     [target(f'gadget_conda_seconds{{{H}, stage="total"}}', "{{host}} {{env}}")],
-    "Time to activate a conda environment, start its python3 and import the packages in config/conda.toml "
+    "Time to activate a conda environment, start its python3 and import the packages in checks/conda.sh "
     "(lsdb), in a clean shell, probed every 5 minutes. The same environment is installed in three "
     "locations: shire (solid), shiren (dotted) and astro-gadget's home directory on helios (dashed). "
-    f"A location that fails or takes over {CONDA['env_timeout']} s has no point here.",
+    f"A location that fails or takes over {CONDA_ENV_TIMEOUT} s has no point here.",
     "s", host_overrides() + [
         {"matcher": {"id": "byRegexp", "options": f"/ {env}$/"},
          "properties": [{"id": "custom.lineStyle", "value": style}]}
         for env, style in CONDA_STYLES.items()]))
 y += 8
-for env in (e["name"] for e in CONDA["env"]):
+for env in CONDA_ENVS:
     sel = f'host="$conda_host", env="{env}"'
     panels.append(panel("timeseries", f"Conda startup stages, {env}: $conda_host", (0, y, 24, 8),
         [target(f'gadget_conda_seconds{{{sel}, stage="activate"}}', "activate", "A"),

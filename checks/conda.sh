@@ -1,11 +1,26 @@
-# shellcheck shell=bash
-# Conda probe body (README.md, "Conda probe"). Not a check in checks/: the
-# collector builds the check from config/conda.toml, putting ENVS (name=dir
-# pairs), PACKAGES and ENV_TIMEOUT in front of this file.
-#
-# For each location, in a clean shell as a user would: activate the
+#!/bin/bash
+# interval: 300
+# timeout: 210
+# hosts: arnor gondor
+# Conda probe (README.md, "Conda probe"): how long a user waits to get a conda
+# environment's Python going, with the same environment on each location in
+# ENVS. For each location, in a clean shell as a user would: activate the
 # environment conda/setup.sh built there, start its python3, then import each
 # package. Locations run one after another so they don't slow each other.
+#
+# init.sh reads ENVS and the first host above to build the environments, and
+# gen_hosts_overview.py reads ENVS for its panels: keep one name=dir per line.
+# The name is the `env` label (keep it stable); dir is the path on the hosts.
+ENVS=(
+    shire=/astro/store/shire/@Service/gadget/conda-probe
+    shiren=/astro/store/shiren/gadget/conda-probe
+    home=/astro/users/astro-gadget/conda-probe
+)
+# Imported one after another, each timed. Each must be in conda/environment.yml.
+PACKAGES="lsdb"
+# Seconds for one location before it counts as failed. The timeout above
+# covers every location: 3 x (60 + 5 for timeout -k) + 15 to report.
+ENV_TIMEOUT=60
 
 # Runs in its own shell. Prints "<stage> [package] <seconds>" as each stage
 # finishes, so a location that hangs still reports the stages before it.

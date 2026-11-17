@@ -6,8 +6,6 @@ kind of probe lives in its own module:
   ssh_checks  scheduled checks (checks/*.sh) over one persistent SSH session
               per host, and that session's health metrics
   ssh_login   times a fresh interactive SSH login to each host
-  conda_probe builds the "conda" check from config/conda.toml: conda
-              activation and Python startup times on arnor and gondor
   websites    fetches each URL in config/websites.toml from this VM
   postgres    liveness and metrics of each server in config/postgres.toml
   jupyterhub  whether each hub in config/jupyterhubs.toml answers, and how fast
@@ -115,7 +113,6 @@ async def install_key():
 
 async def main():
     # Imported here, not at the top: they import from this module.
-    import conda_probe
     import jupyterhub
     import metrics_storage
     import postgres
@@ -126,7 +123,6 @@ async def main():
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     checks = ssh_checks.load_checks()
-    checks["conda"] = conda_probe.load_conda_check()
     cfg = tomllib.loads(HOSTS_FILE.read_text())
     writer = Writer()
     hosts = [ssh_checks.Host(h, cfg["user"], checks, i * HOST_OFFSET_S, writer)

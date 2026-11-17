@@ -1215,7 +1215,7 @@
       "id": 14,
       "type": "timeseries",
       "title": "Conda startup time",
-      "description": "Time to activate a conda environment, start its python3 and import the packages in config/conda.toml (lsdb), in a clean shell, probed every 5 minutes. The same environment is installed in three locations: shire (solid), shiren (dotted) and astro-gadget's home directory on helios (dashed). A location that fails or takes over 60 s has no point here.",
+      "description": "Time to activate a conda environment, start its python3 and import the packages in checks/conda.sh (lsdb), in a clean shell, probed every 5 minutes. The same environment is installed in three locations: shire (solid), shiren (dotted) and astro-gadget's home directory on helios (dashed). A location that fails or takes over 60 s has no point here.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
