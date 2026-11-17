@@ -500,8 +500,8 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Memory available",
-      "description": "Available (solid) is how much memory new work can still use, counting cache the kernel would give back. Total (dashed) is installed RAM.",
+      "title": "Memory used",
+      "description": "Used (solid) is total minus available: memory new work can't have without swapping, so page cache the kernel would give back doesn't count. Total (dashed) is installed RAM; the gap between the two is what is still available.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -518,8 +518,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_memory_MemAvailable_bytes{host=~\"$host\"}",
-          "legendFormat": "{{host}} available",
+          "expr": "node_memory_MemTotal_bytes{host=~\"$host\"} - node_memory_MemAvailable_bytes{host=~\"$host\"}",
+          "legendFormat": "{{host}} used",
           "refId": "A",
           "range": true
         },
@@ -726,8 +726,8 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Swap free",
-      "description": "Free swap (solid) against total swap (dashed). gondor has no swap configured, so both are 0.",
+      "title": "Swap used",
+      "description": "Swap in use (solid) against total swap (dashed); the gap is what is free. gondor has no swap configured, so both are 0.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -744,8 +744,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_memory_SwapFree_bytes{host=~\"$host\"}",
-          "legendFormat": "{{host}} free",
+          "expr": "node_memory_SwapTotal_bytes{host=~\"$host\"} - node_memory_SwapFree_bytes{host=~\"$host\"}",
+          "legendFormat": "{{host}} used",
           "refId": "A",
           "range": true
         },
@@ -3279,8 +3279,8 @@
     {
       "id": 33,
       "type": "timeseries",
-      "title": "GPU memory free",
-      "description": "Free GPU memory (solid) against each GPU's total (dashed), sampled every minute. The driver keeps about 0.6 GB per GPU for itself, so free never quite reaches total.",
+      "title": "GPU memory used",
+      "description": "GPU memory in use (solid, total minus the driver's free figure) against each GPU's total (dashed), sampled every minute. The driver keeps about 0.6 GB per GPU for itself, so used never quite drops to 0.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -3297,8 +3297,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_gpu_memory_free_bytes{host=~\"$host\"}",
-          "legendFormat": "gpu{{gpu}} free",
+          "expr": "gadget_gpu_memory_total_bytes{host=~\"$host\"} - gadget_gpu_memory_free_bytes{host=~\"$host\"}",
+          "legendFormat": "gpu{{gpu}} used",
           "refId": "A",
           "range": true
         },
