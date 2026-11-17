@@ -44,6 +44,34 @@
           ]
         },
         "sort": 1
+      },
+      {
+        "name": "mountpoint",
+        "label": "Mount point",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "query": {
+          "query": "label_values(service_vm_filesystem_size_bytes{service_vm=~\"$service_vm\"}, mountpoint)",
+          "refId": "mountpoint"
+        },
+        "definition": "label_values(service_vm_filesystem_size_bytes{service_vm=~\"$service_vm\"}, mountpoint)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1
       }
     ]
   },
@@ -148,7 +176,7 @@
       "id": 3,
       "type": "stat",
       "title": "Fullest filesystem",
-      "description": "The highest share of space used among each VM's local filesystems. 'Filesystem used' below has every filesystem.",
+      "description": "The highest share of space used among each VM's local filesystems. The 'Filesystem used' panels below have each filesystem in bytes.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -483,7 +511,7 @@
       "id": 9,
       "type": "timeseries",
       "title": "Memory used",
-      "description": "Memory in use (total minus available: what can't be reclaimed without swapping), and swap in use, as a share of each. A VM without swap has no swap line.",
+      "description": "Memory in use (solid: total minus available, what can't be reclaimed without swapping) against installed memory (dashed). The gap is what is still available.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -491,7 +519,7 @@
       "gridPos": {
         "x": 12,
         "y": 17,
-        "w": 12,
+        "w": 6,
         "h": 8
       },
       "targets": [
@@ -500,8 +528,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - max by (service_vm) (service_vm_memory_available_bytes{service_vm=~\"$service_vm\"}) / max by (service_vm) (service_vm_memory_total_bytes{service_vm=~\"$service_vm\"})",
-          "legendFormat": "{{service_vm}} memory",
+          "expr": "max by (service_vm) (service_vm_memory_total_bytes{service_vm=~\"$service_vm\"}) - max by (service_vm) (service_vm_memory_available_bytes{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}} used",
           "refId": "A",
           "range": true,
           "instant": false
@@ -511,140 +539,9 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - max by (service_vm) (service_vm_swap_free_bytes{service_vm=~\"$service_vm\"}) / max by (service_vm) (service_vm_swap_total_bytes{service_vm=~\"$service_vm\"} > 0)",
-          "legendFormat": "{{service_vm}} swap",
+          "expr": "max by (service_vm) (service_vm_memory_total_bytes{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}} total",
           "refId": "B",
-          "range": true,
-          "instant": false
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "max": 1,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": 90000,
-            "axisSoftMin": 0
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "1m"
-    },
-    {
-      "id": 10,
-      "type": "row",
-      "title": "Disks",
-      "collapsed": false,
-      "panels": [],
-      "gridPos": {
-        "x": 0,
-        "y": 25,
-        "w": 24,
-        "h": 1
-      }
-    },
-    {
-      "id": 11,
-      "type": "timeseries",
-      "title": "Filesystem used",
-      "description": "Share of space used on each local filesystem (xfs, ext4, btrfs). Network filesystems such as /service/shire are not included.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "victoriametrics"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 26,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "1 - max by (service_vm, mountpoint) (service_vm_filesystem_avail_bytes{service_vm=~\"$service_vm\"}) / max by (service_vm, mountpoint) (service_vm_filesystem_size_bytes{service_vm=~\"$service_vm\"})",
-          "legendFormat": "{{service_vm}} {{mountpoint}}",
-          "refId": "A",
-          "range": true,
-          "instant": false
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "max": 1,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": 90000,
-            "axisSoftMin": 0
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "1m"
-    },
-    {
-      "id": 12,
-      "type": "timeseries",
-      "title": "Filesystem free",
-      "description": "Space left on each local filesystem for ordinary users.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "victoriametrics"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 26,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "max by (service_vm, mountpoint) (service_vm_filesystem_avail_bytes{service_vm=~\"$service_vm\"})",
-          "legendFormat": "{{service_vm}} {{mountpoint}}",
-          "refId": "A",
           "range": true,
           "instant": false
         }
@@ -664,7 +561,71 @@
             "axisSoftMin": 0
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gadget /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^mpg /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^dpg /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ total$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -678,6 +639,288 @@
         }
       },
       "interval": "1m"
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Swap used",
+      "description": "Swap in use (solid) against the swap configured (dashed). A VM without swap has no lines here.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 17,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max by (service_vm) (service_vm_swap_total_bytes{service_vm=~\"$service_vm\"} > 0) - max by (service_vm) (service_vm_swap_free_bytes{service_vm=~\"$service_vm\"})",
+          "legendFormat": "{{service_vm}} used",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max by (service_vm) (service_vm_swap_total_bytes{service_vm=~\"$service_vm\"} > 0)",
+          "legendFormat": "{{service_vm}} total",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 90000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gadget /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^mpg /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^dpg /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ total$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "1m"
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Disks",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Filesystem used: $mountpoint",
+      "description": "Space used (solid) against the filesystem's size (dashed) on each VM with this mount point. Used is size minus what ordinary users can still write, so blocks reserved for root count as used, and the gap is exactly the space left. Local filesystems only (xfs, ext4, btrfs); network filesystems such as /service/shire are not included.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max by (service_vm, mountpoint) (service_vm_filesystem_size_bytes{service_vm=~\"$service_vm\", mountpoint=~\"$mountpoint\"}) - max by (service_vm, mountpoint) (service_vm_filesystem_avail_bytes{service_vm=~\"$service_vm\", mountpoint=~\"$mountpoint\"})",
+          "legendFormat": "{{service_vm}} used",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max by (service_vm, mountpoint) (service_vm_filesystem_size_bytes{service_vm=~\"$service_vm\", mountpoint=~\"$mountpoint\"})",
+          "legendFormat": "{{service_vm}} size",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 90000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gadget /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^mpg /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^dpg /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ size$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "1m",
+      "repeat": "mountpoint",
+      "repeatDirection": "h",
+      "maxPerRow": 3
     },
     {
       "id": 13,

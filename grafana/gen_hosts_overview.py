@@ -45,7 +45,9 @@ GOOD, WARN, CRIT = "#0ca30c", "#fab219", "#d03b3b"
 pid = 0
 
 def target(expr, legend, ref="A", **kw):
-    return {"datasource": DS, "expr": expr, "legendFormat": legend, "refId": ref, "range": True, **kw}
+    # Not both: a stat panel shows every frame, so range + instant doubles each value.
+    return {"datasource": DS, "expr": expr, "legendFormat": legend, "refId": ref,
+            "range": not kw.get("instant"), **kw}
 
 def host_overrides(dash_suffix=None):
     o = [{"matcher": {"id": "byRegexp", "options": f"/^{h}/"},
@@ -114,10 +116,12 @@ panels.append(ts("Load per core", (16, y, 8, 9),
 y += 9
 
 panels.append(row("Memory and swap", y)); y += 1
-panels.append(ts("Memory available", (0, y, 8, 9),
-    [target(f'node_memory_MemAvailable_bytes{{{H}}}', "{{host}} available"),
+panels.append(ts("Memory used", (0, y, 8, 9),
+    [target(f'node_memory_MemTotal_bytes{{{H}}} - node_memory_MemAvailable_bytes{{{H}}}', "{{host}} used"),
      target(f'node_memory_MemTotal_bytes{{{H}}}', "{{host}} total", "B")],
-    "Available (solid) is how much memory new work can still use, counting cache the kernel would give back. Total (dashed) is installed RAM.",
+    "Used (solid) is total minus available: memory new work can't have without swapping, so "
+    "page cache the kernel would give back doesn't count. Total (dashed) is installed RAM; the "
+    "gap between the two is what is still available.",
     "bytes", host_overrides("total")))
 panels.append(ts("Direct reclaim stalls", (8, y, 6, 9),
     [target(f'sum by (host) (rate({{__name__=~"node_vmstat_allocstall_.*", {H}}}[$__interval]))', "{{host}}")],
@@ -125,10 +129,11 @@ panels.append(ts("Direct reclaim stalls", (8, y, 6, 9),
     "zones, from /proc/vmstat). It slows whatever process is allocating, even while memory "
     "available looks fine. 0 is normal.",
     "cps", host_overrides()))
-panels.append(ts("Swap free", (14, y, 6, 9),
-    [target(f'node_memory_SwapFree_bytes{{{H}}}', "{{host}} free"),
+panels.append(ts("Swap used", (14, y, 6, 9),
+    [target(f'node_memory_SwapTotal_bytes{{{H}}} - node_memory_SwapFree_bytes{{{H}}}', "{{host}} used"),
      target(f'node_memory_SwapTotal_bytes{{{H}}}', "{{host}} total", "B")],
-    "Free swap (solid) against total swap (dashed). gondor has no swap configured, so both are 0.",
+    "Swap in use (solid) against total swap (dashed); the gap is what is free. gondor has no "
+    "swap configured, so both are 0.",
     "bytes", host_overrides("total")))
 panels.append(stat("Swap free now", (20, y, 4, 9),
     [target(f'100 * node_memory_SwapFree_bytes{{{H}}} / (node_memory_SwapTotal_bytes{{{H}}} > 0) '
@@ -136,6 +141,30 @@ panels.append(stat("Swap free now", (20, y, 4, 9),
     "Percent of swap still free. 'no swap' means the host has none configured.",
     "percent", [{"color": CRIT, "value": None}, {"color": WARN, "value": 10}, {"color": GOOD, "value": 25}],
     mappings=[{"type": "value", "options": {"-1": {"text": "no swap", "color": "text", "index": 0}}}], decimals=0))
+y += 9
+
+panels.append(row("Disk space", y)); y += 1
+# One panel per filesystem: /local is 6-12 times the size of / on every host,
+# and on a shared axis / would be a flat line along the bottom.
+for i, (mnt, what) in enumerate((("/", "Root filesystem (/)"),
+                                 ("/local", "/local"))):
+    sel = f'{H}, mountpoint="{mnt}"'
+    panels.append(ts(f"{what} used", (10 * i, y, 10, 9),
+        [target(f'node_filesystem_size_bytes{{{sel}}} - node_filesystem_avail_bytes{{{sel}}}', "{{host}} used"),
+         target(f'node_filesystem_size_bytes{{{sel}}}', "{{host}} size", "B")],
+        f"Space used on {mnt} (solid) against the filesystem's size (dashed); the disk is full "
+        "where the lines meet. Used is size minus what ordinary users can still write, so the "
+        "gap is exactly the space left. "
+        + ("The operating system, /var and /tmp live here." if mnt == "/" else
+           "Local scratch space for users and services."),
+        "bytes", host_overrides("size")))
+panels.append(stat("Disk used now", (20, y, 4, 9),
+    [target(f'100 * (1 - node_filesystem_avail_bytes{{{H}, mountpoint!=""}} '
+            f'/ node_filesystem_size_bytes{{{H}, mountpoint!=""}})', "{{host}} {{mountpoint}}", instant=True)],
+    "Percent of each local filesystem in use (/ and /local; shire's exported filesystems are on "
+    "the NFS server dashboard).",
+    "percent", [{"color": GOOD, "value": None}, {"color": WARN, "value": 80}, {"color": CRIT, "value": 90}],
+    decimals=0))
 y += 9
 
 panels.append(row("SSH login", y)); y += 1
@@ -348,11 +377,12 @@ def gpu_overrides(dash_suffix=None):
     return o
 
 panels.append(row("GPUs (gondor)", y)); y += 1
-panels.append(ts("GPU memory free", (0, y, 9, 9),
-    [target(f'gadget_gpu_memory_free_bytes{{{H}}}', "gpu{{gpu}} free"),
+panels.append(ts("GPU memory used", (0, y, 9, 9),
+    [target(f'gadget_gpu_memory_total_bytes{{{H}}} - gadget_gpu_memory_free_bytes{{{H}}}', "gpu{{gpu}} used"),
      target(f'gadget_gpu_memory_total_bytes{{{H}}}', "gpu{{gpu}} total", "B")],
-    "Free GPU memory (solid) against each GPU's total (dashed), sampled every minute. "
-    "The driver keeps about 0.6 GB per GPU for itself, so free never quite reaches total.",
+    "GPU memory in use (solid, total minus the driver's free figure) against each GPU's total "
+    "(dashed), sampled every minute. The driver keeps about 0.6 GB per GPU for itself, so used "
+    "never quite drops to 0.",
     "bytes", gpu_overrides("total")))
 panels.append(ts("GPU utilization", (9, y, 9, 9),
     [target(f'gadget_gpu_utilization_percent{{{H}}}', "gpu{{gpu}} average"),
