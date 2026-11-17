@@ -37,9 +37,9 @@ internals** shows an age under an hour.
 | File | Role |
 |---|---|
 | `service.conf` | Service account name, uid and gid (astro-gadget). The single source of truth; everything else reads it via `.env` |
-| `init.sh` | Host-level setup only: podman, the service account, SSH hardening, `/local` and shire directories, the Grafana admin password, `.env`, and seeding/restoring local state |
+| `init.sh` | Host-level setup only: podman, the service account, SSH hardening, `/local` and shire directories, the Grafana admin password, `.env`, seeding/restoring local state, and (over SSH on arnor) the conda probe's environments |
 | `compose.yaml` | The five containers and their mounts |
-| `collector/` | Collector image: `collector.py` (VictoriaMetrics writer, SSH key, startup) and one module per kind of probe: `ssh_checks.py` (persistent SSH sessions, check scheduler), `ssh_login.py` (login probe), `websites.py` (website probe), `postgres.py` (PostgreSQL servers), `jupyterhub.py` (JupyterHubs), `service_vms.py` (service VM resources), `metrics_storage.py` (metrics database size and free space on `/local`); plus the agent, checks and config copied in |
+| `collector/` | Collector image: `collector.py` (VictoriaMetrics writer, SSH key, startup) and one module per kind of probe: `ssh_checks.py` (persistent SSH sessions, check scheduler), `ssh_login.py` (login probe), `websites.py` (website probe), `postgres.py` (PostgreSQL servers), `jupyterhub.py` (JupyterHubs), `service_vms.py` (service VM resources), `metrics_storage.py` (metrics database size and free space on `/local`), `conda_probe.py` (builds the conda probe's check); plus the agent, checks and config copied in |
 | `agent/agent.py` | Remote agent, sent to each target over the SSH session. Python 3.9, stdlib only |
 | `checks/*.sh` | One check per file (see README.md, "Adding a check") |
 | `config/hosts.toml` | Hosts to monitor |
@@ -47,6 +47,8 @@ internals** shows an age under an hour.
 | `config/postgres.toml` | PostgreSQL servers the collector probes from this VM (see README.md, "PostgreSQL servers") |
 | `config/jupyterhubs.toml` | JupyterHubs the collector probes from this VM (see README.md, "JupyterHubs") |
 | `config/service_vms.toml` | Service VMs whose monitor the collector polls (see README.md, "Service VMs") |
+| `config/conda.toml` | Conda probe: locations, packages, hosts (see README.md, "Conda probe") |
+| `conda/` | Conda probe: `environment.yml`, `setup.sh` (builds a location, run by `init.sh`), `probe.sh` (the check body) |
 | `config/known_hosts` | Pinned SSH host keys for the targets |
 | `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_postgres.py`, `gen_jupyterhub.py`, `gen_service_vms.py`, `gen_collector_internals.py`, `gen_metrics_storage.py`, `gen_nfs_server.py`, `gen_users.py`, sharing `user_usage.py`) |
 | `monitoring/` | Service VM monitor image and its compose settings (`monitoring/compose.yaml`, pulled into `compose.yaml` with `extends`): this VM's CPU, memory and disks on port 9110. The same folder goes into other service repos; see `monitoring/README.md` |

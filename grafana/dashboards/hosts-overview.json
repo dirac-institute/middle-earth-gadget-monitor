@@ -86,6 +86,34 @@
         "sort": 1
       },
       {
+        "name": "conda_host",
+        "label": "Conda probe",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "hide": 2,
+        "query": {
+          "query": "label_values(gadget_conda_seconds{host=~\"$host\"}, host)",
+          "refId": "conda_host"
+        },
+        "definition": "label_values(gadget_conda_seconds{host=~\"$host\"}, host)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1
+      },
+      {
         "name": "nfs_host",
         "label": "NFS client",
         "type": "query",
@@ -1173,7 +1201,7 @@
     {
       "id": 13,
       "type": "row",
-      "title": "NFS",
+      "title": "Python and conda startup",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1186,6 +1214,532 @@
     {
       "id": 14,
       "type": "timeseries",
+      "title": "Conda startup time",
+      "description": "Time to activate a conda environment, start its python3 and import the packages in config/conda.toml (lsdb), in a clean shell, probed every 5 minutes. The same environment is installed in three locations: shire (solid), shiren (dotted) and astro-gadget's home directory on helios (dashed). A location that fails or takes over 40 s has no point here.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=~\"$host\", stage=\"total\"}",
+          "legendFormat": "{{host}} {{env}}",
+          "refId": "A",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 600000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^arnor/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gondor/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ shiren$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dot",
+                  "dash": [
+                    2,
+                    4
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ home$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Conda startup stages, shire: $conda_host",
+      "description": "Where the startup time goes for the environment on shire, stacked. activate: source conda.sh and conda activate (this runs conda's own Python, from the same location). python: start the environment's python3 and print. import: import each package, in one interpreter. A location that hangs shows only the stages it finished.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shire\", stage=\"activate\"}",
+          "legendFormat": "activate",
+          "refId": "A",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shire\", stage=\"python\"}",
+          "legendFormat": "python",
+          "refId": "B",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shire\", stage=\"import\"}",
+          "legendFormat": "import {{package}}",
+          "refId": "C",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": 600000,
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^activate/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^python/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^import/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "repeat": "conda_host",
+      "repeatDirection": "h",
+      "maxPerRow": 2
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Conda startup stages, shiren: $conda_host",
+      "description": "Where the startup time goes for the environment on shiren, stacked. activate: source conda.sh and conda activate (this runs conda's own Python, from the same location). python: start the environment's python3 and print. import: import each package, in one interpreter. A location that hangs shows only the stages it finished.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shiren\", stage=\"activate\"}",
+          "legendFormat": "activate",
+          "refId": "A",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shiren\", stage=\"python\"}",
+          "legendFormat": "python",
+          "refId": "B",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shiren\", stage=\"import\"}",
+          "legendFormat": "import {{package}}",
+          "refId": "C",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": 600000,
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^activate/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^python/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^import/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "repeat": "conda_host",
+      "repeatDirection": "h",
+      "maxPerRow": 2
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Conda startup stages, home: $conda_host",
+      "description": "Where the startup time goes for the environment on home, stacked. activate: source conda.sh and conda activate (this runs conda's own Python, from the same location). python: start the environment's python3 and print. import: import each package, in one interpreter. A location that hangs shows only the stages it finished.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 63,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"home\", stage=\"activate\"}",
+          "legendFormat": "activate",
+          "refId": "A",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"home\", stage=\"python\"}",
+          "legendFormat": "python",
+          "refId": "B",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"home\", stage=\"import\"}",
+          "legendFormat": "import {{package}}",
+          "refId": "C",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": 600000,
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^activate/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^python/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^import/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "repeat": "conda_host",
+      "repeatDirection": "h",
+      "maxPerRow": 2
+    },
+    {
+      "id": 18,
+      "type": "row",
+      "title": "NFS",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 71,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
       "title": "Queue wait per call: helios",
       "description": "Average time an NFS call to helios waited in the client before being sent, over all operations, from the kernel's per-mount counters. Rising queue wait means the client has more requests than it can put on the wire (or the server is slow to free slots).",
       "datasource": {
@@ -1194,7 +1748,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 72,
         "w": 8,
         "h": 8
       },
@@ -1283,7 +1837,7 @@
       }
     },
     {
-      "id": 15,
+      "id": 20,
       "type": "timeseries",
       "title": "Round-trip time per call: helios",
       "description": "Average time from sending an NFS call to helios until its reply arrived (network plus server), over all operations. Calls still in progress are not counted until they finish, so a hung server shows as a gap, not a spike.",
@@ -1293,7 +1847,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 47,
+        "y": 80,
         "w": 8,
         "h": 8
       },
@@ -1382,7 +1936,7 @@
       }
     },
     {
-      "id": 16,
+      "id": 21,
       "type": "timeseries",
       "title": "Queue wait per call: shire",
       "description": "Average time an NFS call to shire waited in the client before being sent, over all operations, from the kernel's per-mount counters. Rising queue wait means the client has more requests than it can put on the wire (or the server is slow to free slots).",
@@ -1392,7 +1946,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 39,
+        "y": 72,
         "w": 8,
         "h": 8
       },
@@ -1481,7 +2035,7 @@
       }
     },
     {
-      "id": 17,
+      "id": 22,
       "type": "timeseries",
       "title": "Round-trip time per call: shire",
       "description": "Average time from sending an NFS call to shire until its reply arrived (network plus server), over all operations. Calls still in progress are not counted until they finish, so a hung server shows as a gap, not a spike.",
@@ -1491,7 +2045,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 47,
+        "y": 80,
         "w": 8,
         "h": 8
       },
@@ -1580,7 +2134,7 @@
       }
     },
     {
-      "id": 18,
+      "id": 23,
       "type": "timeseries",
       "title": "Queue wait per call: shiren",
       "description": "Average time an NFS call to shiren waited in the client before being sent, over all operations, from the kernel's per-mount counters. Rising queue wait means the client has more requests than it can put on the wire (or the server is slow to free slots).",
@@ -1590,7 +2144,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 39,
+        "y": 72,
         "w": 8,
         "h": 8
       },
@@ -1679,7 +2233,7 @@
       }
     },
     {
-      "id": 19,
+      "id": 24,
       "type": "timeseries",
       "title": "Round-trip time per call: shiren",
       "description": "Average time from sending an NFS call to shiren until its reply arrived (network plus server), over all operations. Calls still in progress are not counted until they finish, so a hung server shows as a gap, not a spike.",
@@ -1689,7 +2243,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 47,
+        "y": 80,
         "w": 8,
         "h": 8
       },
@@ -1778,20 +2332,20 @@
       }
     },
     {
-      "id": 20,
+      "id": 25,
       "type": "row",
       "title": "Stuck processes, NFS state and RDMA",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 88,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 21,
+      "id": 26,
       "type": "timeseries",
       "title": "Processes in D state",
       "description": "Processes in uninterruptible sleep (state D), sampled every minute. These are usually waiting on I/O, often NFS, and can't be killed until it completes. A few for a moment is normal; a count that stays up means something is stuck. This was the first visible symptom of the November 2026 outage (hung Jupyter kernels).",
@@ -1801,7 +2355,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 56,
+        "y": 89,
         "w": 8,
         "h": 8
       },
@@ -1890,7 +2444,7 @@
       }
     },
     {
-      "id": 22,
+      "id": 27,
       "type": "timeseries",
       "title": "NFS state manager threads",
       "description": "NFSv4 client kernel threads (\"<server>-manager\") recovering lease or delegation state, sampled every minute. Normally 0: one appears briefly when a server asks for state back. Present at sample after sample means recovery is looping, as in the November 2026 outage.",
@@ -1900,7 +2454,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 56,
+        "y": 89,
         "w": 8,
         "h": 8
       },
@@ -1989,7 +2543,7 @@
       }
     },
     {
-      "id": 23,
+      "id": 28,
       "type": "timeseries",
       "title": "TEST_STATEID share of NFS calls",
       "description": "TEST_STATEID calls as a percent of all NFS calls to helios, shire and shiren. The client sends TEST_STATEID to check whether state it holds is still valid after the server revoked some. Normally near 0; above a few percent is abnormal. In the November 2026 outage it was 81% of all NFSv4 calls.",
@@ -1999,7 +2553,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 56,
+        "y": 89,
         "w": 8,
         "h": 8
       },
@@ -2089,7 +2643,7 @@
       }
     },
     {
-      "id": 24,
+      "id": 29,
       "type": "timeseries",
       "title": "TEST_STATEID calls",
       "description": "TEST_STATEID calls per second, per host and NFS filesystem (helios solid, shire dashed, shiren dotted).",
@@ -2099,7 +2653,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 97,
         "w": 8,
         "h": 8
       },
@@ -2224,7 +2778,7 @@
       }
     },
     {
-      "id": 25,
+      "id": 30,
       "type": "timeseries",
       "title": "DELEGRETURN calls",
       "description": "Delegations handed back to the server, per second, per host and filesystem (helios solid, shire dashed, shiren dotted). A delegation lets a client cache a file; it returns one when done or when the server recalls it. A sustained high rate is delegation churn, which preceded the November 2026 outage. Their queue wait is on 'Queue wait by operation'.",
@@ -2234,7 +2788,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 64,
+        "y": 97,
         "w": 8,
         "h": 8
       },
@@ -2359,7 +2913,7 @@
       }
     },
     {
-      "id": 26,
+      "id": 31,
       "type": "state-timeline",
       "title": "RDMA port state",
       "description": "State of each RDMA (RoCE) port, from /sys/class/infiniband. NFS to shire runs over RoCE. Disabled (gray) is a port whose link is disabled, normally because it isn't cabled: mlx5_1 on arnor and gondor. shire has one port, the bond mlx5_bond_0. Any other port that isn't ACTIVE is a problem.",
@@ -2369,7 +2923,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 64,
+        "y": 97,
         "w": 8,
         "h": 8
       },
@@ -2472,7 +3026,7 @@
       }
     },
     {
-      "id": 27,
+      "id": 32,
       "type": "timeseries",
       "title": "RDMA errors and retransmissions: $host",
       "description": "Events per second from the RDMA adapters' hardware counters, all ports summed; only counters that moved in the time range are drawn, and a green \"no errors\" line at 0 when none did. packet_seq_err and out_of_sequence: packets lost or reordered. local_ack_timeout_err: a peer didn't acknowledge in time. roce_adp_retrans and roce_slow_restart_cnps: retransmissions and congestion slow-downs. *_remote_access_errors and *_cqe_error: failed operations. The November 2026 outage showed hundreds of thousands of sequence errors and retransmissions.",
@@ -2482,7 +3036,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 72,
+        "y": 105,
         "w": 24,
         "h": 9
       },
@@ -2675,20 +3229,20 @@
       "maxPerRow": 2
     },
     {
-      "id": 28,
+      "id": 33,
       "type": "row",
       "title": "NFS queue wait by operation",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 81,
+        "y": 114,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 29,
+      "id": 34,
       "type": "timeseries",
       "title": "Queue wait by operation: $nfs_host, helios",
       "description": "Average client-side queue wait per call to helios, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
@@ -2698,7 +3252,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 82,
+        "y": 115,
         "w": 24,
         "h": 9
       },
@@ -2880,7 +3434,7 @@
       "maxPerRow": 2
     },
     {
-      "id": 30,
+      "id": 35,
       "type": "timeseries",
       "title": "Queue wait by operation: $nfs_host, shire",
       "description": "Average client-side queue wait per call to shire, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
@@ -2890,7 +3444,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 91,
+        "y": 124,
         "w": 24,
         "h": 9
       },
@@ -3072,7 +3626,7 @@
       "maxPerRow": 2
     },
     {
-      "id": 31,
+      "id": 36,
       "type": "timeseries",
       "title": "Queue wait by operation: $nfs_host, shiren",
       "description": "Average client-side queue wait per call to shiren, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
@@ -3082,7 +3636,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 100,
+        "y": 133,
         "w": 24,
         "h": 9
       },
@@ -3264,20 +3818,20 @@
       "maxPerRow": 2
     },
     {
-      "id": 32,
+      "id": 37,
       "type": "row",
       "title": "GPUs (gondor)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 109,
+        "y": 142,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 33,
+      "id": 38,
       "type": "timeseries",
       "title": "GPU memory free",
       "description": "Free GPU memory (solid) against each GPU's total (dashed), sampled every minute. The driver keeps about 0.6 GB per GPU for itself, so free never quite reaches total.",
@@ -3287,7 +3841,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 110,
+        "y": 143,
         "w": 9,
         "h": 9
       },
@@ -3389,7 +3943,7 @@
       }
     },
     {
-      "id": 34,
+      "id": 39,
       "type": "timeseries",
       "title": "GPU utilization",
       "description": "Percent of time a GPU kernel was running, from the driver's samples over the ~14 s before each once-a-minute check: average (solid) and peak (dashed). Covers about a quarter of the time, so short bursts between checks can be missed.",
@@ -3399,7 +3953,7 @@
       },
       "gridPos": {
         "x": 9,
-        "y": 110,
+        "y": 143,
         "w": 9,
         "h": 9
       },
@@ -3503,7 +4057,7 @@
       }
     },
     {
-      "id": 35,
+      "id": 40,
       "type": "timeseries",
       "title": "GPU processes",
       "description": "Number of processes holding each GPU (they may hold memory without computing).",
@@ -3513,7 +4067,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 110,
+        "y": 143,
         "w": 6,
         "h": 9
       },
@@ -3587,20 +4141,20 @@
       }
     },
     {
-      "id": 36,
+      "id": 41,
       "type": "row",
       "title": "Users",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 119,
+        "y": 152,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 37,
+      "id": 42,
       "type": "timeseries",
       "title": "Users per day",
       "description": "Distinct users on the selected hosts in each day (Pacific time; the last bar is the day so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, the monitor's own accounts and system accounts are not counted.",
@@ -3610,7 +4164,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 120,
+        "y": 153,
         "w": 12,
         "h": 9
       },
@@ -3699,7 +4253,7 @@
       "maxDataPoints": 3000
     },
     {
-      "id": 38,
+      "id": 43,
       "type": "timeseries",
       "title": "Users per week",
       "description": "Distinct users on the selected hosts in each week (Pacific time, weeks start Monday; the last bar is the week so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, the monitor's own accounts and system accounts are not counted.",
@@ -3709,7 +4263,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 120,
+        "y": 153,
         "w": 12,
         "h": 9
       },

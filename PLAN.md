@@ -97,6 +97,14 @@ Where the build differs from the original plan:
   node_exporter, to serve a fixed ~35 series per VM. Its published port
   bypasses firewalld (podman DNAT), so no VM needs a firewall change, at the
   cost of the numbers being readable by anyone who can reach the VM.
+- **Added after the plan: conda probe** (#43). On arnor and gondor, the
+  time to activate a conda environment, start its python3 and import lsdb,
+  with the same environment on shire, shiren and astro-gadget's NFS home,
+  on Hosts overview. It runs as a check built by the collector from
+  `config/conda.toml`, so it shares the persistent session rather than
+  logging in like the login probe. `init.sh` builds the environments over
+  SSH (`conda/setup.sh`, its own Miniconda per location, conda-forge only).
+  About 30 series.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 
