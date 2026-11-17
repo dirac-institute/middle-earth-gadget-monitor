@@ -11,7 +11,7 @@
 # new series. `dir` is the path on the hosts (not on this VM).
 
 interval = 300      # seconds between probes
-env_timeout = 40    # seconds for one location, before it counts as failed
+env_timeout = 60    # seconds for one location, before it counts as failed
 hosts = ["arnor", "gondor"]
 
 # Imported one after another, each timed. Each must be in conda/environment.yml.

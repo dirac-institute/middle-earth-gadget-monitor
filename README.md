@@ -297,7 +297,7 @@ after another, the probe times:
 - `total`: all of the above, recorded only when every stage succeeded.
 
 `gadget_conda_success{env}` is 1 when a location got through every stage
-within `env_timeout` (40 s); a location that hangs records only the stages it
+within `env_timeout` (60 s); a location that hangs records only the stages it
 finished. The collector builds the check from `config/conda.toml` and
 `conda/probe.sh` and runs it through the persistent session like any other
 (`check="conda"` in the collector's check status); it does not log in afresh,
@@ -323,7 +323,7 @@ sudo -u astro-gadget ssh -F /dev/null -i /service/shire/astro-gadget-ssh-key.key
 ```
 
 (delete `miniconda3` in that directory first for a clean install). Each
-location takes about 3 GB.
+location takes about 2.5 GB in 145,000 files.
 
 ## NFS server
 
