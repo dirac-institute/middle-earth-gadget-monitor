@@ -193,6 +193,7 @@ lines. On the Admin dashboard, tell it not to repeat usernames.
 | `nfs_disks` (shire only) | `node_disk_*{device,fs,level}` (node_exporter names), `gadget_xfs_{log_forces,log_force_sleeps,log_writes,log_space_waits,inode_cache_misses,read_calls,write_calls}_total{fs}`, `node_filesystem_{size,avail}_bytes{fs}`, `node_filesystem_files{,_free}{fs}` |
 | `disk_space` | `node_filesystem_{size,avail}_bytes{mountpoint}` for `/` and `/local` |
 | `users_gpu` (gondor only, every minute) | `gadget_user_gpu_memory_bytes{user}`, `gadget_user_gpu_percent{user}` |
+| `conda` (arnor and gondor; see "Conda probe") | `gadget_conda_seconds{env,stage,package}`, `gadget_conda_success{env}` |
 
 **`gpu`** makes one `nvidia-smi -q` call. GPU utilization is bursty and the
 driver keeps no cumulative busy counter, so the check reports the average and
@@ -294,6 +295,63 @@ how long the login takes to become usable. The results are
 home directory), `shell` (session, login shell and profile until the command
 runs) and `total`. A login that hangs records only the stages it finished,
 and shows as `check="ssh_login"` timing out after 60 s.
+
+**Conda probe** (#43; the `conda` check): every 5 minutes, on arnor and
+gondor, how long a user waits to get a conda environment's Python going, on
+each of three storage locations: shire
+(`/astro/store/shire/@Service/gadget/conda-probe`), shiren
+(`/astro/store/shiren/gadget/conda-probe`) and astro-gadget's home directory on
+helios (`/astro/users/astro-gadget/conda-probe`). Each location has its own
+Miniconda with the same environment, `gadget-probe`, built from
+`conda/environment.yml` (conda-forge only). In a clean shell, one location
+after another, the probe times:
+- `activate`: `source .../etc/profile.d/conda.sh` and `conda activate`, which
+  runs conda's own Python from that location;
+- `python`: starting the environment's `python3` until it prints (its
+  `sys.prefix`, which proves it is the environment's);
+- `import`: importing each package in `PACKAGES` in `checks/conda.sh`
+  (`lsdb`), one interpreter, timed per package (`package` label);
+- `total`: all of the above, recorded only when every stage succeeded.
+
+`gadget_conda_success{env}` is 1 when a location got through every stage
+within `ENV_TIMEOUT` (60 s); a location that hangs records only the stages it
+finished. It is an ordinary check, run through the persistent session, so it
+does not log in afresh and never includes the login time. The locations
+(`ENVS`) and packages are set at the top of `checks/conda.sh`. Results are on
+Hosts overview, "Python and conda startup".
+
+Before each location, the probe drops the files it is about to read from the
+host's page cache (`posix_fadvise(DONTNEED)`, unprivileged), so every run reads
+them from the NFS server again, as a user's first import would. Without that,
+arnor and gondor (over 1 TB of RAM each) keep the ~300 MB cached and the probe
+times only local memory. The NFS server's own cache is left alone: the probe is
+meant to show client-side trouble, and a struggling server still shows. The
+list of files (about 6,400 per location: what conda, python3 and the imports
+load) is built by the probe itself, in `/tmp` on each host, on its first run
+and again whenever `conda/setup.sh` changes the environment. Evicting it takes
+about a second; each run reads ~300 MB per location from the servers.
+
+The environments are built by `init.sh`, which runs `conda/setup.sh` over SSH
+on arnor, as astro-gadget, once per location (the paths exist only on the
+targets, and a conda install can't be copied: its own path is written into
+it). The script installs Miniconda if it is missing, creates the environment
+if it is missing, and updates it when `conda/environment.yml` has changed;
+otherwise it changes nothing. To add a package to the probe: add it to
+`conda/environment.yml` and to `PACKAGES`, run `sudo ./init.sh`, then rebuild
+the collector. To add a location: add a `name=dir` line to `ENVS` in
+`checks/conda.sh` (the timeout line needs about 65 s more per location),
+run `init.sh`, rebuild the collector and regenerate the Hosts overview
+dashboard (it has a line of stage panels per location). To rebuild one
+location by hand:
+
+```bash
+podman exec -i gadget-monitor-collector ssh -T -F /dev/null -i /dev/shm/gadget-ssh-key \
+    -o UserKnownHostsFile=/srv/config/known_hosts astro-gadget@arnor.astro.washington.edu \
+    "bash -s -- /astro/store/shiren/gadget/conda-probe $(base64 -w0 conda/environment.yml)" < conda/setup.sh
+```
+
+(delete `miniconda3` in that directory first for a clean install). Each
+location takes about 2.5 GB in 145,000 files.
 
 ## NFS server
 
