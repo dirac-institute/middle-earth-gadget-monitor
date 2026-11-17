@@ -317,8 +317,8 @@ dashboard (it has a line of stage panels per location). To rebuild one
 location by hand:
 
 ```bash
-sudo -u astro-gadget ssh -F /dev/null -i /service/shire/astro-gadget-ssh-key.key \
-    -o UserKnownHostsFile=config/known_hosts astro-gadget@arnor.astro.washington.edu \
+podman exec -i gadget-monitor-collector ssh -T -F /dev/null -i /dev/shm/gadget-ssh-key \
+    -o UserKnownHostsFile=/srv/config/known_hosts astro-gadget@arnor.astro.washington.edu \
     "bash -s -- /astro/store/shiren/gadget/conda-probe $(base64 -w0 conda/environment.yml)" < conda/setup.sh
 ```
 
