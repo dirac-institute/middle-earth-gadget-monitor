@@ -317,8 +317,19 @@ after another, the probe times:
 within `ENV_TIMEOUT` (60 s); a location that hangs records only the stages it
 finished. It is an ordinary check, run through the persistent session, so it
 does not log in afresh and never includes the login time. The locations
-(`ENVS`) and packages are set at the top of `checks/conda.sh`. Results are on Hosts overview, "Python
-and conda startup".
+(`ENVS`) and packages are set at the top of `checks/conda.sh`. Results are on
+Hosts overview, "Python and conda startup".
+
+Before each location, the probe drops the files it is about to read from the
+host's page cache (`posix_fadvise(DONTNEED)`, unprivileged), so every run reads
+them from the NFS server again, as a user's first import would. Without that,
+arnor and gondor (over 1 TB of RAM each) keep the ~300 MB cached and the probe
+times only local memory. The NFS server's own cache is left alone: the probe is
+meant to show client-side trouble, and a struggling server still shows. The
+list of files (about 6,400 per location: what conda, python3 and the imports
+load) is built by the probe itself, in `/tmp` on each host, on its first run
+and again whenever `conda/setup.sh` changes the environment. Evicting it takes
+about a second; each run reads ~300 MB per location from the servers.
 
 The environments are built by `init.sh`, which runs `conda/setup.sh` over SSH
 on arnor, as astro-gadget, once per location (the paths exist only on the
