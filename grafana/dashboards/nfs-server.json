@@ -393,7 +393,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "1 - node_filesystem_avail_bytes{host=\"shire\"} / node_filesystem_size_bytes{host=\"shire\"}",
+          "expr": "1 - node_filesystem_avail_bytes{host=\"shire\", check=\"nfs_disks\"} / node_filesystem_size_bytes{host=\"shire\", check=\"nfs_disks\"}",
           "legendFormat": "{{fs}}",
           "refId": "A",
           "range": false,

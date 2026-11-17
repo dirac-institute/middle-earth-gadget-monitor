@@ -140,8 +140,10 @@ panels += [
          "nfsd threads in uninterruptible sleep, usually waiting on the disks. Requests queue once "
          "all 256 threads are busy.",
          "short", [{"color": GOOD, "value": None}, {"color": WARN, "value": 64}, {"color": CRIT, "value": 192}], 0),
+    # check= keeps out shire's / and /local (disk_space), which share the metric names.
     stat("Space used", (18, y, 3, 4),
-         [target(f'1 - node_filesystem_avail_bytes{{{S}}} / node_filesystem_size_bytes{{{S}}}', "{{fs}}", instant=True)],
+         [target(f'1 - node_filesystem_avail_bytes{{{S}, check="nfs_disks"}} / '
+                 f'node_filesystem_size_bytes{{{S}, check="nfs_disks"}}', "{{fs}}", instant=True)],
          "Share of each exported filesystem in use.", "percentunit", USED_STEPS, 0),
     stat("RDMA clients", (21, y, 3, 4),
          [target(f'count(sum by (client) (gadget_nfsd_client_connections{{{S}, transport="rdma"}}) > 0)',
