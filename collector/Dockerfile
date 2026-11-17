@@ -18,5 +18,6 @@ COPY collector/*.py         /srv/collector/
 COPY agent/agent.py         /srv/agent/agent.py
 COPY checks/                /srv/checks/
 COPY config/                /srv/config/
+COPY conda/probe.sh         /srv/conda/probe.sh
 
 CMD ["python3", "-u", "/srv/collector/collector.py"]

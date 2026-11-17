@@ -163,6 +163,45 @@ else
     warn "SSH key $SSH_KEY is not readable by $SVC_USER; the collector cannot log in"
 fi
 
+# ── Conda probe environments ───────────────────────────────────────────────
+# The conda probe (README.md, "Conda probe") needs its environment in every
+# location in config/conda.toml. Those paths exist only on the targets, so
+# conda/setup.sh runs there, over SSH, as the account the collector uses. It
+# leaves an environment that is already up to date alone.
+echo
+echo "== Conda probe environments =="
+# Prints the login for the first host in conda.toml, then one dir per line.
+mapfile -t conda_cfg < <(python3 - "$REPO_DIR/config" <<'EOF'
+import sys, tomllib
+from pathlib import Path
+cfg = Path(sys.argv[1])
+conda = tomllib.loads((cfg / "conda.toml").read_text())
+hosts = tomllib.loads((cfg / "hosts.toml").read_text())
+h = next(h for h in hosts["host"] if h["name"] == conda["hosts"][0])
+print(f"{h.get('user', hosts['user'])}@{h['address']}")
+for e in conda["env"]:
+    print(e["dir"])
+EOF
+)
+env_yml="$(base64 -w0 "$REPO_DIR/conda/environment.yml")"
+# ssh runs as the service account, which may not be able to reach the repo
+# (a checkout under /root): give it its own copy of the pinned host keys.
+known_hosts="$(mktemp)"
+trap 'rm -f "$known_hosts"' EXIT
+cp "$REPO_DIR/config/known_hosts" "$known_hosts"
+chmod 0644 "$known_hosts"
+for dir in "${conda_cfg[@]:1}"; do
+    # A first install downloads and unpacks a few GB onto NFS.
+    if as_svc 3600 ssh -T -F /dev/null -i "$SSH_KEY" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" \
+            "${conda_cfg[0]}" "bash -s -- $(printf %q "$dir") $env_yml" \
+            < "$REPO_DIR/conda/setup.sh" | sed 's/^/  /'; then
+        echo "  ok   $dir"
+    else
+        warn "conda probe environment in $dir failed on ${conda_cfg[0]}; the conda probe will fail there"
+    fi
+done
+
 # ── Compose environment ────────────────────────────────────────────────────
 echo
 echo "== Compose environment =="

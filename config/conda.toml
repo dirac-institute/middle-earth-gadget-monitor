@@ -1,0 +1,31 @@
+# Conda probe (README.md, "Conda probe"): how long it takes on a host to
+# activate a conda environment, start its python3 and import packages, with
+# the same environment installed on each storage location below.
+#
+# The collector runs conda/probe.sh as a check named "conda" on `hosts`,
+# through the same persistent SSH session as the other checks. init.sh builds
+# the environments (conda/setup.sh, from conda/environment.yml) over SSH on
+# the first host in `hosts`; re-run it after adding a location or a package.
+#
+# `name` becomes the `env` label: keep it stable, a renamed location starts
+# new series. `dir` is the path on the hosts (not on this VM).
+
+interval = 300      # seconds between probes
+env_timeout = 40    # seconds for one location, before it counts as failed
+hosts = ["arnor", "gondor"]
+
+# Imported one after another, each timed. Each must be in conda/environment.yml.
+packages = ["lsdb"]
+
+[[env]]
+name = "shire"
+dir = "/astro/store/shire/@Service/gadget/conda-probe"
+
+[[env]]
+name = "shiren"
+dir = "/astro/store/shiren/gadget/conda-probe"
+
+# astro-gadget's home directory, on helios.
+[[env]]
+name = "home"
+dir = "/astro/users/astro-gadget/conda-probe"
