@@ -874,7 +874,7 @@
           "expr": "100 * node_memory_SwapFree_bytes{host=~\"$host\"} / (node_memory_SwapTotal_bytes{host=~\"$host\"} > 0) or (node_memory_SwapTotal_bytes{host=~\"$host\"} == 0) - 1",
           "legendFormat": "{{host}}",
           "refId": "A",
-          "range": true,
+          "range": false,
           "instant": true
         }
       ],
@@ -1223,7 +1223,7 @@
           "expr": "100 * (1 - node_filesystem_avail_bytes{host=~\"$host\", mountpoint!=\"\"} / node_filesystem_size_bytes{host=~\"$host\", mountpoint!=\"\"})",
           "legendFormat": "{{host}} {{mountpoint}}",
           "refId": "A",
-          "range": true,
+          "range": false,
           "instant": true
         }
       ],

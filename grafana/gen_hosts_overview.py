@@ -36,7 +36,9 @@ GOOD, WARN, CRIT = "#0ca30c", "#fab219", "#d03b3b"
 pid = 0
 
 def target(expr, legend, ref="A", **kw):
-    return {"datasource": DS, "expr": expr, "legendFormat": legend, "refId": ref, "range": True, **kw}
+    # Not both: a stat panel shows every frame, so range + instant doubles each value.
+    return {"datasource": DS, "expr": expr, "legendFormat": legend, "refId": ref,
+            "range": not kw.get("instant"), **kw}
 
 def host_overrides(dash_suffix=None):
     o = [{"matcher": {"id": "byRegexp", "options": f"/^{h}/"},
