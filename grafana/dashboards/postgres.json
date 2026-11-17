@@ -1398,7 +1398,7 @@
       "id": 22,
       "type": "timeseries",
       "title": "Data disk used",
-      "description": "Space used on the /data partition (left axis; 'Data disk free' above has the share left), and how much of it is WAL in pg_wal (right axis), which grows if archiving to the backup repository falls behind.",
+      "description": "Space used on the /data partition (solid) against its size (dashed). The gap is the space left, which 'Data disk free' above has as a share.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1406,7 +1406,7 @@
       "gridPos": {
         "x": 12,
         "y": 48,
-        "w": 12,
+        "w": 6,
         "h": 8
       },
       "targets": [
@@ -1426,8 +1426,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (server) (pg_wal_directory_bytes{server=~\"$server\"})",
-          "legendFormat": "{{server}} WAL (pg_wal)",
+          "expr": "max by (server) (pg_data_disk_size_bytes{server=~\"$server\"})",
+          "legendFormat": "{{server}} size",
           "refId": "B",
           "range": true,
           "instant": false
@@ -1452,12 +1452,48 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*WAL \\(pg_wal\\)"
+              "options": "/^mpg /"
             },
             "properties": [
               {
-                "id": "custom.axisPlacement",
-                "value": "right"
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^dpg /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ size$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
               }
             ]
           }
@@ -1478,6 +1514,95 @@
     },
     {
       "id": 23,
+      "type": "timeseries",
+      "title": "WAL in pg_wal",
+      "description": "How much of /data is WAL waiting in pg_wal. It grows if archiving to the backup repository falls behind, and can then fill the partition.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 48,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max by (server) (pg_wal_directory_bytes{server=~\"$server\"})",
+          "legendFormat": "{{server}}",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 90000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mpg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dpg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "1m"
+    },
+    {
+      "id": 24,
       "type": "timeseries",
       "title": "WAL written per hour",
       "description": "Write-ahead log generated. All of it is archived to the backup repository, so this drives the repository's growth between full backups.",
@@ -1535,7 +1660,7 @@
       "interval": "1m"
     },
     {
-      "id": 24,
+      "id": 25,
       "type": "timeseries",
       "title": "Transaction ID age",
       "description": "Age of each database's oldest unfrozen transaction ID. Autovacuum freezes at 200 million; PostgreSQL stops accepting writes near 2 billion. Steady growth past 200 million means vacuum can't keep up (often a long-open transaction).",
@@ -1606,7 +1731,7 @@
       "interval": "1m"
     },
     {
-      "id": 25,
+      "id": 26,
       "type": "row",
       "title": "Backups",
       "collapsed": false,
@@ -1619,7 +1744,7 @@
       }
     },
     {
-      "id": 26,
+      "id": 27,
       "type": "timeseries",
       "title": "Backup size",
       "description": "All retained backups in the pgBackRest repository on shire (compressed), next to the total size of the databases. Archived WAL, also kept in the repository, is not measured: that would mean walking the repository on NFS. Updated every 5 minutes.",
@@ -1688,7 +1813,7 @@
       "interval": "1m"
     },
     {
-      "id": 27,
+      "id": 28,
       "type": "timeseries",
       "title": "Size of the last backup",
       "description": "What the most recent backup of each type added to the repository, compressed. Incrementals store only changed blocks.",
@@ -1746,7 +1871,7 @@
       "interval": "1m"
     },
     {
-      "id": 28,
+      "id": 29,
       "type": "timeseries",
       "title": "Backup duration",
       "description": "How long the most recent backup of each type took.",
@@ -1804,7 +1929,7 @@
       "interval": "1m"
     },
     {
-      "id": 29,
+      "id": 30,
       "type": "timeseries",
       "title": "WAL archiving",
       "description": "WAL segments copied to the backup repository per interval, and failed attempts (PostgreSQL retries failures). A few failures right after a new server's first start, before the backup repository exists, are expected.",
@@ -1874,7 +1999,7 @@
       "interval": "1m"
     },
     {
-      "id": 30,
+      "id": 31,
       "type": "row",
       "title": "Replication",
       "collapsed": false,
@@ -1887,7 +2012,7 @@
       }
     },
     {
-      "id": 31,
+      "id": 32,
       "type": "timeseries",
       "title": "Replicas and slots",
       "description": "Replicas streaming from this server, and its replication slots. An inactive slot keeps WAL on disk forever and can fill /data.",
@@ -1957,7 +2082,7 @@
       "interval": "1m"
     },
     {
-      "id": 32,
+      "id": 33,
       "type": "timeseries",
       "title": "Replication lag",
       "description": "As a primary: the largest replay lag among its replicas. As a replica: time since the last transaction replayed from the primary (this also grows while the primary is idle).",
@@ -2027,7 +2152,7 @@
       "interval": "1m"
     },
     {
-      "id": 33,
+      "id": 34,
       "type": "timeseries",
       "title": "WAL held for replicas",
       "description": "The most WAL any replication slot is keeping on disk, and how far behind the furthest replica is, in bytes.",

@@ -6,8 +6,9 @@
 PostgreSQL servers probed by the collector (config/postgres.toml). The
 gadget_postgres_* metrics come from the collector's own probes; pg_* and
 pgbackrest_* are imported from each server's monitoring endpoint (see
-middle-earth-postgres, monitor/). Nothing here names a server or database, so
-adding a server to the config needs no dashboard change.
+middle-earth-postgres, monitor/). Nothing here names a database, and servers
+are named only for their colors, so adding a server to the config needs no
+dashboard change.
 """
 import json, sys
 
@@ -16,6 +17,9 @@ GOOD, WARN, CRIT = "#0ca30c", "#fab219", "#d03b3b"
 S = 'server=~"$server"'
 D = 'server=~"$server", datname=~"$datname"'
 LEGEND = {"displayMode": "list", "placement": "bottom", "showLegend": True}
+# Where a panel draws several lines per server, each server keeps one color (as
+# on Service VMs). Other servers get a palette color per line.
+SERVER_COLORS = {"mpg": "#d95926", "dpg": "#199e70"}
 DAY = 86400
 pid = 0
 
@@ -188,15 +192,24 @@ panels = [
     ts("Database size", (0, 48, 12, 8),
         [target(f'max by (server, datname) (pg_database_size_bytes{{{D}}})', "{{server}} {{datname}}")],
         "Size on disk of each database (tables, indexes, TOAST). Updated every 5 minutes.", "bytes"),
-    ts("Data disk used", (12, 48, 12, 8),
+    ts("Data disk used", (12, 48, 6, 8),
         targets(
             (f'max by (server) (pg_data_disk_size_bytes{{{S}}} - pg_data_disk_free_bytes{{{S}}})', "{{server}} used"),
-            (f'max by (server) (pg_wal_directory_bytes{{{S}}})', "{{server}} WAL (pg_wal)")),
-        "Space used on the /data partition (left axis; 'Data disk free' above has the share "
-        "left), and how much of it is WAL in pg_wal (right axis), which grows if archiving to "
-        "the backup repository falls behind.", "bytes",
-        overrides=[{"matcher": {"id": "byRegexp", "options": ".*WAL \\(pg_wal\\)"},
-                    "properties": [{"id": "custom.axisPlacement", "value": "right"}]}]),
+            (f'max by (server) (pg_data_disk_size_bytes{{{S}}})', "{{server}} size")),
+        "Space used on the /data partition (solid) against its size (dashed). The gap is the "
+        "space left, which 'Data disk free' above has as a share.", "bytes",
+        overrides=[{"matcher": {"id": "byRegexp", "options": f"/^{s} /"},
+                    "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
+                   for s, c in SERVER_COLORS.items()] + [
+                   {"matcher": {"id": "byRegexp", "options": "/ size$/"},
+                    "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 6]}}]}]),
+    ts("WAL in pg_wal", (18, 48, 6, 8),
+        [target(f'max by (server) (pg_wal_directory_bytes{{{S}}})', "{{server}}")],
+        "How much of /data is WAL waiting in pg_wal. It grows if archiving to the backup "
+        "repository falls behind, and can then fill the partition.", "bytes",
+        overrides=[{"matcher": {"id": "byName", "options": s},
+                    "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
+                   for s, c in SERVER_COLORS.items()]),
     ts("WAL written per hour", (0, 56, 12, 8),
         [target(f'sum by (server) (rate(pg_wal_bytes_total{{{S}}}{R})) * 3600', "{{server}}")],
         "Write-ahead log generated. All of it is archived to the backup repository, so this "
