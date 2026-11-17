@@ -935,7 +935,7 @@
     {
       "id": 10,
       "type": "row",
-      "title": "SSH login",
+      "title": "Disk space",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -948,6 +948,343 @@
     {
       "id": 11,
       "type": "timeseries",
+      "title": "Root filesystem (/) used",
+      "description": "Space used on / (solid) against the filesystem's size (dashed); the disk is full where the lines meet. Used is size minus what ordinary users can still write, so the gap is exactly the space left. The operating system, /var and /tmp live here.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 10,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_filesystem_size_bytes{host=~\"$host\", mountpoint=\"/\"} - node_filesystem_avail_bytes{host=~\"$host\", mountpoint=\"/\"}",
+          "legendFormat": "{{host}} used",
+          "refId": "A",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_filesystem_size_bytes{host=~\"$host\", mountpoint=\"/\"}",
+          "legendFormat": "{{host}} size",
+          "refId": "B",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 600000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^arnor/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gondor/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/size$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "/local used",
+      "description": "Space used on /local (solid) against the filesystem's size (dashed); the disk is full where the lines meet. Used is size minus what ordinary users can still write, so the gap is exactly the space left. Local scratch space for users and services.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 21,
+        "w": 10,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_filesystem_size_bytes{host=~\"$host\", mountpoint=\"/local\"} - node_filesystem_avail_bytes{host=~\"$host\", mountpoint=\"/local\"}",
+          "legendFormat": "{{host}} used",
+          "refId": "A",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_filesystem_size_bytes{host=~\"$host\", mountpoint=\"/local\"}",
+          "legendFormat": "{{host}} size",
+          "refId": "B",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": 600000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^arnor/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gondor/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^shire/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/size$/"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Disk used now",
+      "description": "Percent of each local filesystem in use (/ and /local; shire's exported filesystems are on the NFS server dashboard).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 21,
+        "w": 4,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "100 * (1 - node_filesystem_avail_bytes{host=~\"$host\", mountpoint!=\"\"} / node_filesystem_size_bytes{host=~\"$host\", mountpoint!=\"\"})",
+          "legendFormat": "{{host}} {{mountpoint}}",
+          "refId": "A",
+          "range": true,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 80
+              },
+              {
+                "color": "#d03b3b",
+                "value": 90
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "SSH login",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
       "title": "Login time",
       "description": "Time for a brand-new interactive SSH login to reach a usable shell, probed every 5 minutes (every 15 after repeated timeouts). Timeouts (60 s) show as FAIL on ssh_login in Check status.",
       "datasource": {
@@ -956,7 +1293,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 21,
+        "y": 31,
         "w": 24,
         "h": 8
       },
@@ -1045,7 +1382,7 @@
       }
     },
     {
-      "id": 12,
+      "id": 16,
       "type": "timeseries",
       "title": "Login stages: $login_host",
       "description": "Where the login time goes, stacked. connect: DNS and TCP. auth: key exchange and authentication, which on these hosts reads ~/.ssh/authorized_keys from the NFS home directory. shell: session setup, login shell and profile until a typed command runs. A hung login shows only the stages it finished.",
@@ -1055,7 +1392,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 39,
         "w": 24,
         "h": 9
       },
@@ -1171,20 +1508,20 @@
       "maxPerRow": 2
     },
     {
-      "id": 13,
+      "id": 17,
       "type": "row",
       "title": "NFS",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 38,
+        "y": 48,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 14,
+      "id": 18,
       "type": "timeseries",
       "title": "Queue wait per call: helios",
       "description": "Average time an NFS call to helios waited in the client before being sent, over all operations, from the kernel's per-mount counters. Rising queue wait means the client has more requests than it can put on the wire (or the server is slow to free slots).",
@@ -1194,7 +1531,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 49,
         "w": 8,
         "h": 8
       },
@@ -1283,7 +1620,7 @@
       }
     },
     {
-      "id": 15,
+      "id": 19,
       "type": "timeseries",
       "title": "Round-trip time per call: helios",
       "description": "Average time from sending an NFS call to helios until its reply arrived (network plus server), over all operations. Calls still in progress are not counted until they finish, so a hung server shows as a gap, not a spike.",
@@ -1293,7 +1630,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 47,
+        "y": 57,
         "w": 8,
         "h": 8
       },
@@ -1382,7 +1719,7 @@
       }
     },
     {
-      "id": 16,
+      "id": 20,
       "type": "timeseries",
       "title": "Queue wait per call: shire",
       "description": "Average time an NFS call to shire waited in the client before being sent, over all operations, from the kernel's per-mount counters. Rising queue wait means the client has more requests than it can put on the wire (or the server is slow to free slots).",
@@ -1392,7 +1729,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 39,
+        "y": 49,
         "w": 8,
         "h": 8
       },
@@ -1481,7 +1818,7 @@
       }
     },
     {
-      "id": 17,
+      "id": 21,
       "type": "timeseries",
       "title": "Round-trip time per call: shire",
       "description": "Average time from sending an NFS call to shire until its reply arrived (network plus server), over all operations. Calls still in progress are not counted until they finish, so a hung server shows as a gap, not a spike.",
@@ -1491,7 +1828,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 47,
+        "y": 57,
         "w": 8,
         "h": 8
       },
@@ -1580,7 +1917,7 @@
       }
     },
     {
-      "id": 18,
+      "id": 22,
       "type": "timeseries",
       "title": "Queue wait per call: shiren",
       "description": "Average time an NFS call to shiren waited in the client before being sent, over all operations, from the kernel's per-mount counters. Rising queue wait means the client has more requests than it can put on the wire (or the server is slow to free slots).",
@@ -1590,7 +1927,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 39,
+        "y": 49,
         "w": 8,
         "h": 8
       },
@@ -1679,7 +2016,7 @@
       }
     },
     {
-      "id": 19,
+      "id": 23,
       "type": "timeseries",
       "title": "Round-trip time per call: shiren",
       "description": "Average time from sending an NFS call to shiren until its reply arrived (network plus server), over all operations. Calls still in progress are not counted until they finish, so a hung server shows as a gap, not a spike.",
@@ -1689,7 +2026,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 47,
+        "y": 57,
         "w": 8,
         "h": 8
       },
@@ -1778,20 +2115,20 @@
       }
     },
     {
-      "id": 20,
+      "id": 24,
       "type": "row",
       "title": "Stuck processes, NFS state and RDMA",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 65,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 21,
+      "id": 25,
       "type": "timeseries",
       "title": "Processes in D state",
       "description": "Processes in uninterruptible sleep (state D), sampled every minute. These are usually waiting on I/O, often NFS, and can't be killed until it completes. A few for a moment is normal; a count that stays up means something is stuck. This was the first visible symptom of the November 2026 outage (hung Jupyter kernels).",
@@ -1801,7 +2138,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 56,
+        "y": 66,
         "w": 8,
         "h": 8
       },
@@ -1890,7 +2227,7 @@
       }
     },
     {
-      "id": 22,
+      "id": 26,
       "type": "timeseries",
       "title": "NFS state manager threads",
       "description": "NFSv4 client kernel threads (\"<server>-manager\") recovering lease or delegation state, sampled every minute. Normally 0: one appears briefly when a server asks for state back. Present at sample after sample means recovery is looping, as in the November 2026 outage.",
@@ -1900,7 +2237,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 56,
+        "y": 66,
         "w": 8,
         "h": 8
       },
@@ -1989,7 +2326,7 @@
       }
     },
     {
-      "id": 23,
+      "id": 27,
       "type": "timeseries",
       "title": "TEST_STATEID share of NFS calls",
       "description": "TEST_STATEID calls as a percent of all NFS calls to helios, shire and shiren. The client sends TEST_STATEID to check whether state it holds is still valid after the server revoked some. Normally near 0; above a few percent is abnormal. In the November 2026 outage it was 81% of all NFSv4 calls.",
@@ -1999,7 +2336,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 56,
+        "y": 66,
         "w": 8,
         "h": 8
       },
@@ -2089,7 +2426,7 @@
       }
     },
     {
-      "id": 24,
+      "id": 28,
       "type": "timeseries",
       "title": "TEST_STATEID calls",
       "description": "TEST_STATEID calls per second, per host and NFS filesystem (helios solid, shire dashed, shiren dotted).",
@@ -2099,7 +2436,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 74,
         "w": 8,
         "h": 8
       },
@@ -2224,7 +2561,7 @@
       }
     },
     {
-      "id": 25,
+      "id": 29,
       "type": "timeseries",
       "title": "DELEGRETURN calls",
       "description": "Delegations handed back to the server, per second, per host and filesystem (helios solid, shire dashed, shiren dotted). A delegation lets a client cache a file; it returns one when done or when the server recalls it. A sustained high rate is delegation churn, which preceded the November 2026 outage. Their queue wait is on 'Queue wait by operation'.",
@@ -2234,7 +2571,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 64,
+        "y": 74,
         "w": 8,
         "h": 8
       },
@@ -2359,7 +2696,7 @@
       }
     },
     {
-      "id": 26,
+      "id": 30,
       "type": "state-timeline",
       "title": "RDMA port state",
       "description": "State of each RDMA (RoCE) port, from /sys/class/infiniband. NFS to shire runs over RoCE. Disabled (gray) is a port whose link is disabled, normally because it isn't cabled: mlx5_1 on arnor and gondor. shire has one port, the bond mlx5_bond_0. Any other port that isn't ACTIVE is a problem.",
@@ -2369,7 +2706,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 64,
+        "y": 74,
         "w": 8,
         "h": 8
       },
@@ -2472,7 +2809,7 @@
       }
     },
     {
-      "id": 27,
+      "id": 31,
       "type": "timeseries",
       "title": "RDMA errors and retransmissions: $host",
       "description": "Events per second from the RDMA adapters' hardware counters, all ports summed; only counters that moved in the time range are drawn, and a green \"no errors\" line at 0 when none did. packet_seq_err and out_of_sequence: packets lost or reordered. local_ack_timeout_err: a peer didn't acknowledge in time. roce_adp_retrans and roce_slow_restart_cnps: retransmissions and congestion slow-downs. *_remote_access_errors and *_cqe_error: failed operations. The November 2026 outage showed hundreds of thousands of sequence errors and retransmissions.",
@@ -2482,7 +2819,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 72,
+        "y": 82,
         "w": 24,
         "h": 9
       },
@@ -2675,20 +3012,20 @@
       "maxPerRow": 2
     },
     {
-      "id": 28,
+      "id": 32,
       "type": "row",
       "title": "NFS queue wait by operation",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 81,
+        "y": 91,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 29,
+      "id": 33,
       "type": "timeseries",
       "title": "Queue wait by operation: $nfs_host, helios",
       "description": "Average client-side queue wait per call to helios, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
@@ -2698,7 +3035,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 82,
+        "y": 92,
         "w": 24,
         "h": 9
       },
@@ -2880,7 +3217,7 @@
       "maxPerRow": 2
     },
     {
-      "id": 30,
+      "id": 34,
       "type": "timeseries",
       "title": "Queue wait by operation: $nfs_host, shire",
       "description": "Average client-side queue wait per call to shire, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
@@ -2890,7 +3227,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 91,
+        "y": 101,
         "w": 24,
         "h": 9
       },
@@ -3072,7 +3409,7 @@
       "maxPerRow": 2
     },
     {
-      "id": 31,
+      "id": 35,
       "type": "timeseries",
       "title": "Queue wait by operation: $nfs_host, shiren",
       "description": "Average client-side queue wait per call to shiren, per NFS operation. OPEN includes OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, LOCK, COMMIT, ...). A line has gaps while that operation had no calls.",
@@ -3082,7 +3419,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 100,
+        "y": 110,
         "w": 24,
         "h": 9
       },
@@ -3264,20 +3601,20 @@
       "maxPerRow": 2
     },
     {
-      "id": 32,
+      "id": 36,
       "type": "row",
       "title": "GPUs (gondor)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 109,
+        "y": 119,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 33,
+      "id": 37,
       "type": "timeseries",
       "title": "GPU memory free",
       "description": "Free GPU memory (solid) against each GPU's total (dashed), sampled every minute. The driver keeps about 0.6 GB per GPU for itself, so free never quite reaches total.",
@@ -3287,7 +3624,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 110,
+        "y": 120,
         "w": 9,
         "h": 9
       },
@@ -3389,7 +3726,7 @@
       }
     },
     {
-      "id": 34,
+      "id": 38,
       "type": "timeseries",
       "title": "GPU utilization",
       "description": "Percent of time a GPU kernel was running, from the driver's samples over the ~14 s before each once-a-minute check: average (solid) and peak (dashed). Covers about a quarter of the time, so short bursts between checks can be missed.",
@@ -3399,7 +3736,7 @@
       },
       "gridPos": {
         "x": 9,
-        "y": 110,
+        "y": 120,
         "w": 9,
         "h": 9
       },
@@ -3503,7 +3840,7 @@
       }
     },
     {
-      "id": 35,
+      "id": 39,
       "type": "timeseries",
       "title": "GPU processes",
       "description": "Number of processes holding each GPU (they may hold memory without computing).",
@@ -3513,7 +3850,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 110,
+        "y": 120,
         "w": 6,
         "h": 9
       },
@@ -3587,20 +3924,20 @@
       }
     },
     {
-      "id": 36,
+      "id": 40,
       "type": "row",
       "title": "Users",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 119,
+        "y": 129,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 37,
+      "id": 41,
       "type": "timeseries",
       "title": "Users per day",
       "description": "Distinct users on the selected hosts in each day (Pacific time; the last bar is the day so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, the monitor's own accounts and system accounts are not counted.",
@@ -3610,7 +3947,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 120,
+        "y": 130,
         "w": 12,
         "h": 9
       },
@@ -3699,7 +4036,7 @@
       "maxDataPoints": 3000
     },
     {
-      "id": 38,
+      "id": 42,
       "type": "timeseries",
       "title": "Users per week",
       "description": "Distinct users on the selected hosts in each week (Pacific time, weeks start Monday; the last bar is the week so far). Logged in: had at least one process running. Active: in at least one 5-minute interval, used 2+ CPU cores on average, or held 5+ GiB of RAM, or kept a GPU 5%+ busy, or held 1+ GiB of GPU memory. root, jhub-admin, the monitor's own accounts and system accounts are not counted.",
@@ -3709,7 +4046,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 120,
+        "y": 130,
         "w": 12,
         "h": 9
       },

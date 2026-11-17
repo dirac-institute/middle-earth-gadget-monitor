@@ -129,6 +129,30 @@ panels.append(stat("Swap free now", (20, y, 4, 9),
     mappings=[{"type": "value", "options": {"-1": {"text": "no swap", "color": "text", "index": 0}}}], decimals=0))
 y += 9
 
+panels.append(row("Disk space", y)); y += 1
+# One panel per filesystem: /local is 6-12 times the size of / on every host,
+# and on a shared axis / would be a flat line along the bottom.
+for i, (mnt, what) in enumerate((("/", "Root filesystem (/)"),
+                                 ("/local", "/local"))):
+    sel = f'{H}, mountpoint="{mnt}"'
+    panels.append(ts(f"{what} used", (10 * i, y, 10, 9),
+        [target(f'node_filesystem_size_bytes{{{sel}}} - node_filesystem_avail_bytes{{{sel}}}', "{{host}} used"),
+         target(f'node_filesystem_size_bytes{{{sel}}}', "{{host}} size", "B")],
+        f"Space used on {mnt} (solid) against the filesystem's size (dashed); the disk is full "
+        "where the lines meet. Used is size minus what ordinary users can still write, so the "
+        "gap is exactly the space left. "
+        + ("The operating system, /var and /tmp live here." if mnt == "/" else
+           "Local scratch space for users and services."),
+        "bytes", host_overrides("size")))
+panels.append(stat("Disk used now", (20, y, 4, 9),
+    [target(f'100 * (1 - node_filesystem_avail_bytes{{{H}, mountpoint!=""}} '
+            f'/ node_filesystem_size_bytes{{{H}, mountpoint!=""}})', "{{host}} {{mountpoint}}", instant=True)],
+    "Percent of each local filesystem in use (/ and /local; shire's exported filesystems are on "
+    "the NFS server dashboard).",
+    "percent", [{"color": GOOD, "value": None}, {"color": WARN, "value": 80}, {"color": CRIT, "value": 90}],
+    decimals=0))
+y += 9
+
 panels.append(row("SSH login", y)); y += 1
 panels.append(ts("Login time", (0, y, 24, 8),
     [target(f'gadget_ssh_login_seconds{{{H}, stage="total"}}', "{{host}}")],

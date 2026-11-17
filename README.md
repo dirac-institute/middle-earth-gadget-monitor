@@ -184,6 +184,7 @@ lines. On the Admin dashboard, tell it not to repeat usernames.
 | `nfsd_delegations` (shire only, every minute) | `gadget_nfsd_delegations{fs,type}`, `gadget_nfsd_delegations_breaking{fs}`, `gadget_nfsd_delegated_files_shared{fs}` |
 | `nfsd_clients` (shire only, every minute) | `gadget_nfsd_client_{read_bytes,write_bytes,stale_filehandles}_total{fs,export,client}`, `gadget_nfsd_client_connections{client,transport}` |
 | `nfs_disks` (shire only) | `node_disk_*{device,fs,level}` (node_exporter names), `gadget_xfs_{log_forces,log_force_sleeps,log_writes,log_space_waits,inode_cache_misses,read_calls,write_calls}_total{fs}`, `node_filesystem_{size,avail}_bytes{fs}`, `node_filesystem_files{,_free}{fs}` |
+| `disk_space` | `node_filesystem_{size,avail}_bytes{mountpoint}` for `/` and `/local` |
 | `users_gpu` (gondor only, every minute) | `gadget_user_gpu_memory_bytes{user}`, `gadget_user_gpu_percent{user}` |
 
 **`gpu`** makes one `nvidia-smi -q` call. GPU utilization is bursty and the
@@ -239,6 +240,15 @@ Not collected: the NFS inode cache size (`/proc/slabinfo` and
 `/sys/kernel/slab` are root-only), and RECALL_ANY callbacks from `dmesg`
 (readable, but the kernel log is a ring buffer, so a count of matching lines
 is neither a gauge nor a counter).
+
+**`disk_space`** reads the size and the space ordinary users can still
+write (`stat -f`, a superblock read) for `/` and `/local`, the local system
+disk on every host. A path that isn't its own local mount is skipped. Hosts
+overview has one graph per filesystem in the **Disk space** row. shire's
+exported filesystems are not here: `nfs_disks` reports those (with an `fs`
+label rather than `mountpoint`, under the same metric names), on the NFS
+server dashboard. Inodes are not collected: the system disks are XFS, which
+allocates inodes as it needs them.
 
 **`users`** reads systemd's per-user cgroups
 (`/sys/fs/cgroup/user.slice/user-<uid>.slice`), which hold every login and

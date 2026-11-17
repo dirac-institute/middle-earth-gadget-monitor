@@ -79,7 +79,8 @@ Where the build differs from the original plan:
   the compute hosts, over the same key but as a local account
   (`astro-gadgetmon`, the per-host `user` in `config/hosts.toml`), since
   astro-gadget can't log in there. It runs cpu, load, memory, procs, rdma,
-  vmstat and users; nfs, jupyterhub and the GPU checks don't apply to it.
+  vmstat, users and disk_space; nfs, jupyterhub and the GPU checks don't
+  apply to it.
   It has no login probe (`login_probe = false`): users don't log in there.
 - **Added after the plan: NFS server dashboard** (#37). Four shire-only
   checks (`nfsd`, `nfsd_delegations`, `nfsd_clients`, `nfs_disks`) read what
@@ -88,6 +89,9 @@ Where the build differs from the original plan:
   with the five new RDMA counters on every host.
   Per-client NFS state, which would name the client behind a delegation
   storm, is root-only; see README.md, "NFS server".
+- **Added after the plan: local disk space** (#42). `checks/disk_space.sh`
+  reports the size and free space of `/` and `/local` on every host (12
+  series in all), graphed on Hosts overview as used against size.
 - **Added after the plan: Service VMs** (#19). Each service VM runs the
   monitor from `monitoring/` (CPU, memory, disks and load, served on
   port 9110), and the collector polls every VM in `config/service_vms.toml`
