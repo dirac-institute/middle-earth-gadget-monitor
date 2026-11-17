@@ -24,8 +24,20 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
-USAGE_FILE = os.environ.get("NIGHTLY_USAGE_FILE", "/root/gadget-nightly/usage.jsonl")
-CREDENTIALS = "/root/.claude/.credentials.json"
+def conf_work():
+    """WORK from nightly.conf next to this script, so a hand-run report finds
+    the same file run.sh writes (run.sh also passes it as NIGHTLY_USAGE_FILE)."""
+    conf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nightly.conf")
+    with open(conf) as f:
+        for line in f:
+            if line.startswith("WORK="):
+                return line.split("=", 1)[1].split("#")[0].strip().strip("\"'")
+    raise SystemExit(f"no WORK= line in {conf}")
+
+
+USAGE_FILE = os.environ.get("NIGHTLY_USAGE_FILE") or os.path.join(conf_work(), "usage.jsonl")
+CREDENTIALS = os.path.join(
+    os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"), ".credentials.json")
 URL = "https://api.anthropic.com/api/oauth/usage"
 # "room" leaves this many percentage points of the 5-hour window, and of the
 # week, unused on top of the most any recent session has taken. The week's
