@@ -1,6 +1,7 @@
 # gadget-monitor: implementation plan
 
-A monitoring service for the `arnor` and `gondor` JupyterHub/compute hosts.
+A monitoring service for the `arnor` and `gondor` JupyterHub/compute hosts
+and `shire`, their NFS server.
 Checks run over SSH every few minutes, results go into a time-series
 database, and Grafana provides the graphs. Everything runs in containers on
 this VM, deployed the same way as the Middle-earth example this repo was
@@ -68,6 +69,41 @@ Where the build differs from the original plan:
   servers require GSI authentication before they report anything else, so
   errors and transfer rates wait on a metrics endpoint in the xrootd
   container, as for the PostgreSQL servers.
+- **Added after the plan: JupyterHub probe** (part of #1). The collector
+  asks each hub in `config/jupyterhubs.toml` for its API root (`hub/api`,
+  no token needed) every minute, and the `jupyterhub` check counts the hub,
+  proxy and single-user server processes on each host, on a **JupyterHub**
+  dashboard. Not done yet: starting a kernel and timing it, which needs a
+  scoped API token configured on the hubs.
+- **Added after the plan: outage signals** (#28), from the November 2026
+  NFS outage: processes in D state and NFSv4 state-recovery threads
+  (`checks/procs.sh`, every minute), RDMA port state and error counters
+  (`checks/rdma.sh`), direct-reclaim stalls (`checks/vmstat.sh`), and
+  DELEGRETURN, TEST_STATEID and FREE_STATEID as named ops in `checks/nfs.sh`.
+  About 70 series per host. The NFS inode cache size (`/proc/slabinfo`) needs
+  root and is not collected.
+- **Added after the plan: shire as a host.** The NFS server is monitored like
+  the compute hosts, over the same key but as a local account
+  (`astro-gadgetmon`, the per-host `user` in `config/hosts.toml`), since
+  astro-gadget can't log in there. It runs cpu, load, memory, procs, rdma,
+  vmstat and users; nfs, jupyterhub and the GPU checks don't apply to it.
+  It has no login probe (`login_probe = false`): users don't log in there.
+- **Added after the plan: NFS server dashboard** (#37). Four shire-only
+  checks (`nfsd`, `nfsd_delegations`, `nfsd_clients`, `nfs_disks`) read what
+  an unprivileged user can see of nfsd, its delegations, its clients and the
+  two exported filesystems, onto **NFS server (shire)**. About 200 series,
+  with the five new RDMA counters on every host.
+  Per-client NFS state, which would name the client behind a delegation
+  storm, is root-only; see README.md, "NFS server".
+- **Added after the plan: Service VMs** (#19). Each service VM runs the
+  monitor from `monitoring/` (CPU, memory, disks and load, served on
+  port 9110), and the collector polls every VM in `config/service_vms.toml`
+  every minute, importing with a `service_vm` label like the PostgreSQL probe,
+  onto a **Service VMs** dashboard. A pull model, so the monitored VMs need
+  nothing from this one. The monitor is a stdlib Python script rather than
+  node_exporter, to serve a fixed ~35 series per VM. Its published port
+  bypasses firewalld (podman DNAT), so no VM needs a firewall change, at the
+  cost of the numbers being readable by anyone who can reach the VM.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 
@@ -105,6 +141,10 @@ Where the build differs from the original plan:
   not the login key): ED25519
   `SHA256:zyhxBFDUoeL8wNyXdFmCtsAvRIbJQwSFEgj3YFEISBU`. It's pinned in
   `config/known_hosts` and has been raised with the sysadmin.
+- shire (added 2026-11-12): 32 CPUs, 125 GiB RAM, 32 GiB swap,
+  python3 3.9.25. It presents the same host key. astro-gadget is refused
+  there; the key logs in as the local `astro-gadgetmon` (uid 1000, home on
+  local disk, so logins don't touch NFS).
 - `/service/shire` is a `hard`-mounted NFSv4.2 export of a 1.4 PB shared
   pool. No quota is visible, so we enforce the 10 GB limit ourselves.
 - `/local` on this VM is a separate 16 GB XFS partition.
@@ -135,7 +175,7 @@ Where the build differs from the original plan:
                               (python3, shipped over stdin)
 ```
 
-Four containers, all running as uid 1734450:
+Five containers, all running as uid 1734450:
 
 | Service | Image | Role |
 |---|---|---|
@@ -143,6 +183,7 @@ Four containers, all running as uid 1734450:
 | `grafana` | official `grafana/grafana-oss`, pinned | Frontend. Published on `127.0.0.1:8080` |
 | `collector` | built from this repo (Python + OpenSSH client) | Schedules checks, manages the SSH connections, writes samples |
 | `backup` | built from this repo (vmbackup/vmrestore binaries + sqlite3) | Hourly and daily backups to shire, size watchdog |
+| `monitoring` | built from `monitoring/` (Python) | This VM's CPU, memory and disks on port 9110, polled by the collector like any other VM (added for #19) |
 
 Apache and the hello-world Flask app are removed. Grafana serves HTTP itself,
 and the VM's reverse proxy still handles TLS.
@@ -322,7 +363,8 @@ A missing data point then always comes with a reason you can see.
   thousand with 100 metrics. Measured in November 2026: about 260,000
   samples a day at 1.4 bytes each (index included), so a year plus a month
   comes to about 150 MB. Depth of history isn't the risk; the number of distinct
-  series is.
+  series is. Each VM in `config/service_vms.toml` adds 46 series sampled every
+  minute, about 35 MB a year.
 - **Series caps:** `-storage.maxHourlySeries=20000` and
   `-storage.maxDailySeries=50000`, so a check that misbehaves can't grow the
   database without limit.
@@ -407,8 +449,8 @@ from a corrupt local database: `podman compose down`, move
   - load 1m and 5m, plus load per core
   - available and total memory
   - free swap (showing "no swap" when there is none)
-  - check health
-  - backup age
+  - check health and backup age (since moved to a separate "Gadget
+    collector internals" dashboard, so the landing page shows only hosts)
 - Dashboards edited in the UI persist through grafana.db backups. Important
   ones should be exported back into `grafana/dashboards/`.
 
@@ -418,7 +460,7 @@ from a corrupt local database: `podman compose down`, move
 service.conf             astro-gadget identity (done)
 init.sh                  + /local dirs, restore logic, grafana secret, --fresh / --restore-from
 compose.yaml             victoriametrics, grafana, collector, backup
-collector/               Dockerfile, collector.py + ssh_checks.py, ssh_login.py, websites.py, postgres.py, xrootd.py, metrics_storage.py
+collector/               Dockerfile, collector.py + ssh_checks.py, ssh_login.py, websites.py, postgres.py, xrootd.py, jupyterhub.py, metrics_storage.py
 agent/agent.py           remote agent (stdlib, py3.9)
 checks/                  cpu.sh, load.sh, memory.sh
 config/hosts.toml        arnor, gondor: hostname, user, enabled checks

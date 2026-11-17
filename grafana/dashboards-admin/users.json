@@ -311,7 +311,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Each user is judged per host per 5-minute interval. An interval is **active** if the user, on average,\nused **2+ CPU cores**, or held **5+ GiB of RAM** (anonymous memory plus swap,\nnot file cache), or kept a GPU **5%+ busy**, or held **1+ GiB of GPU memory**.\nEvery column except the peaks sums active intervals only, so idle sessions add nothing.\n\n- **CPU core-hours**: CPU time used (1 core for 1 hour = 1).\n- **Memory / GPU memory GiB-hours**: memory held \u00d7 time held.\n- **GPU-hours**: GPU busy share \u00d7 time (one GPU fully busy for an hour = 1). Sampled once a minute.\n\nroot, jhub-admin, astro-gadget and system accounts are never collected. Thresholds live in\n`grafana/user_usage.py`; history is reinterpreted when they change."
+        "content": "Each user is judged per host per 5-minute interval. An interval is **active** if the user, on average,\nused **2+ CPU cores**, or held **5+ GiB of RAM** (anonymous memory plus swap,\nnot file cache), or kept a GPU **5%+ busy**, or held **1+ GiB of GPU memory**.\nEvery column except the peaks sums active intervals only, so idle sessions add nothing.\n\n- **CPU core-hours**: CPU time used (1 core for 1 hour = 1).\n- **Memory / GPU memory GiB-hours**: memory held \u00d7 time held.\n- **GPU-hours**: GPU busy share \u00d7 time (one GPU fully busy for an hour = 1). Sampled once a minute.\n\nroot, jhub-admin, the monitor's own accounts and system accounts are never collected. Thresholds live in\n`grafana/user_usage.py`; history is reinterpreted when they change."
       }
     }
   ]

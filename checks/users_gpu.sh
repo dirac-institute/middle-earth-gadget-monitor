@@ -29,7 +29,7 @@ for p in "${!uid_of[@]}"; do
     u=${uid_of[$p]}
     (( u >= 1000 )) || continue
     n=${name[$u]:-$u}
-    case $n in root|jhub-admin|astro-gadget) continue ;; esac
+    case $n in root|jhub-admin|astro-gadget|astro-gadgetmon) continue ;; esac
     echo "$p $n"
 done | awk '
 FILENAME == "-" { user[$1] = $2; next }

@@ -1,6 +1,6 @@
 # gadget-monitor: notes for agents
 
-SSH-based monitoring of `arnor` and `gondor`: check scripts run on the targets,
+SSH-based monitoring of `arnor`, `gondor` and `shire`: check scripts run on the targets,
 results go to VictoriaMetrics and are graphed in Grafana. Read `README.md`
 first (how it works, how to add a check), then `DEPLOY.md` (deploying,
 verifying, troubleshooting) and `PLAN.md` (design and the size budget) as
@@ -34,7 +34,10 @@ There is no test suite. Test against the real thing:
   (likewise `gen_websites.py > dashboards/websites.json`,
   `gen_postgres.py > dashboards/postgres.json`,
   `gen_xrootd.py > dashboards/xrootd.json`,
-  `gen_metrics_storage.py > dashboards/metrics-storage.json` and
+  `gen_jupyterhub.py > dashboards/jupyterhub.json`,
+  `gen_collector_internals.py > dashboards/collector-internals.json`,
+  `gen_metrics_storage.py > dashboards/metrics-storage.json`,
+  `gen_nfs_server.py > dashboards/nfs-server.json` and
   `gen_users.py > dashboards-admin/users.json`). Deploy, then check the
   panels: `tools/panel_data.py <uid>` prints what each panel would draw (as
   text, cheap), and `tools/screenshot.sh` shows how it looks, when layout or

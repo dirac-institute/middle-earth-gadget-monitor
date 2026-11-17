@@ -33,7 +33,6 @@ POSTGRES_FILE = SRV / "config" / "postgres.toml"
 POSTGRES_OFFSET_S = 50             # clear of the hosts', websites' and storage probes
 POSTGRES_STATUSES = ("ok", "http_error", "timeout", "connect_error", "error")
 BASE_PREFIXES = ("pg_", "pgbackrest_", "pgmon_")
-RESERVED_LABELS = {"server", "host", "check"}
 MAX_LINES = 1000
 MAX_BODY_BYTES = 1 << 20
 
@@ -81,24 +80,28 @@ def fetch_metrics(url, timeout):
     return status, "", time.monotonic() - t0, detail
 
 
-def filter_lines(text, server, prefixes, ts_ms):
-    """Endpoint output -> (import lines, dropped count)."""
+def filter_lines(text, labels, prefixes, ts_ms, max_lines=MAX_LINES):
+    """Endpoint output -> (import lines with labels added, dropped count).
+
+    The service VMs probe imports its endpoints the same way.
+    """
+    reserved = {"host", "check"} | labels.keys()
     out, dropped = [], 0
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         m = METRIC_LINE.match(line)
-        labels = parse_labels(m.group(2) or "") if m else None
+        own = parse_labels(m.group(2) or "") if m else None
         try:
             float(m.group(3) if m else "")
         except ValueError:
-            labels = None
-        if (labels is None or RESERVED_LABELS & labels.keys()
-                or not m.group(1).startswith(prefixes) or len(out) >= MAX_LINES):
+            own = None
+        if (own is None or reserved & own.keys()
+                or not m.group(1).startswith(prefixes) or len(out) >= max_lines):
             dropped += 1
             continue
-        out.append(f"{m.group(1)}{fmt_labels({'server': server, **labels})} {m.group(3)} {ts_ms}")
+        out.append(f"{m.group(1)}{fmt_labels({**labels, **own})} {m.group(3)} {ts_ms}")
     return out, dropped
 
 
@@ -145,7 +148,7 @@ class PostgresServer:
             except Exception as e:
                 vm, port, port_s, status, body, scrape_s, detail = (
                     "error", "error", None, "error", "", None, repr(e))
-            lines, dropped = filter_lines(body, self.name, self.prefixes, ts_ms)
+            lines, dropped = filter_lines(body, {"server": self.name}, self.prefixes, ts_ms)
             w, lb = self.writer, {"server": self.name}
             w.metric("gadget_postgres_vm_up", lb, 1 if vm in ("open", "refused") else 0, ts_ms)
             w.metric("gadget_postgres_port_up", lb, 1 if port == "open" else 0, ts_ms)

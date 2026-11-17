@@ -3,19 +3,30 @@
 
     python3 grafana/gen_hosts_overview.py > grafana/dashboards/hosts-overview.json
 
-Host colors are fixed per host (categorical slots 1-2, dark theme) so a host
+Host colors are fixed per host (categorical slots 1, 2 and 6, dark theme) so a host
 keeps its color in every panel; dashed lines are the secondary cue.
 """
 import json, sys
 import user_usage
 
 DS = {"type": "prometheus", "uid": "victoriametrics"}
-HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926"}  # dataviz categorical slots 1-2 (dark)
-# Login stages use the next slots (3-5) so they never borrow a host's color.
+HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926", "shire": "#008300"}  # dataviz categorical slots 1, 2, 6 (dark)
+# Login stages use slots 3-5 so they never borrow a host's color.
 STAGE_COLORS = {"connect": "#199e70", "auth": "#c98500", "shell": "#d55181"}
-# NFS ops take categorical slots 1-7 in order; OTHER is neutral gray, not a hue.
+# NFS ops take categorical slots 1-8 in order; OTHER is neutral gray, not a hue.
 OP_COLORS = {"READ": "#3987e5", "WRITE": "#d95926", "GETATTR": "#199e70", "LOOKUP": "#c98500",
-             "ACCESS": "#d55181", "OPEN": "#008300", "CLOSE": "#9085e9", "OTHER": "#8f8e86"}
+             "ACCESS": "#d55181", "OPEN": "#008300", "CLOSE": "#9085e9", "DELEGRETURN": "#e66767",
+             "OTHER": "#8f8e86"}
+# Ops the nfs check reports that the by-operation panels fold back into OTHER:
+# there are no slots left, and they have their own panels.
+NFS_STATE_OPS = "TEST_STATEID|FREE_STATEID"
+# Line style per NFS filesystem when a panel shows host x fs.
+FS_STYLES = {"shire": {"fill": "dash", "dash": [10, 6]}, "shiren": {"fill": "dot", "dash": [2, 4]}}
+# RDMA counters (checks/rdma.sh) take slots 1-8 in a panel repeated per host.
+RDMA_COUNTERS = {"packet_seq_err": "#3987e5", "out_of_sequence": "#d95926",
+                 "local_ack_timeout_err": "#199e70", "roce_adp_retrans": "#c98500",
+                 "roce_slow_restart_cnps": "#d55181", "req_remote_access_errors": "#008300",
+                 "req_cqe_error": "#9085e9", "resp_cqe_error": "#e66767"}
 NFS_FS = ("helios", "shire", "shiren")
 # GPUs (gondor only) take slots 3 and 7: never a host's color, and far apart.
 GPU_COLORS = {"gpu0": "#199e70", "gpu1": "#9085e9"}
@@ -64,20 +75,6 @@ def row(title, y, collapsed=False, panels=None):
     return {"id": pid, "type": "row", "title": title, "collapsed": collapsed,
             "gridPos": {"x": 0, "y": y, "w": 24, "h": 1}, "panels": panels or []}
 
-def state_mapping(on, off):
-    return [{"type": "value", "options": {
-        "1": {"text": on, "color": GOOD, "index": 0},
-        "0": {"text": off, "color": CRIT, "index": 1}}}]
-
-def state_timeline(title, grid, targets, desc, on, off):
-    return panel("state-timeline", title, grid, targets, desc, None, None,
-                 {"lineWidth": 0, "fillOpacity": 80},
-                 {"showValue": "never", "mergeValues": True, "rowHeight": 0.8,
-                  "legend": {"showLegend": False}, "tooltip": {"mode": "single"}},
-                 mappings=state_mapping(on, off),
-                 color={"mode": "thresholds"},
-                 thresholds={"mode": "absolute", "steps": [{"color": CRIT, "value": None}, {"color": GOOD, "value": 1}]})
-
 def stat(title, grid, targets, desc, unit, steps, mappings=None, legend_text=True, decimals=None):
     d = {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": steps}}
     if mappings: d["mappings"] = mappings
@@ -90,26 +87,6 @@ def stat(title, grid, targets, desc, unit, steps, mappings=None, legend_text=Tru
 H = 'host=~"$host"'
 panels = []
 y = 0
-panels.append(row("Health", y)); y += 1
-panels.append(state_timeline("Check status", (0, y, 12, 8),
-    [target(f'max by (host, check) (gadget_check_success{{{H}}})', "{{host}} / {{check}}")],
-    "Did each check run and exit successfully? FAIL covers errors, timeouts, skipped (still stuck from last run), and host unreachable. See 'Collector internals' for the reason.",
-    "OK", "FAIL"))
-panels.append(state_timeline("SSH session", (12, y, 6, 8),
-    [target(f'max by (host) (gadget_ssh_connected{{{H}}})', "{{host}}")],
-    "Whether the collector's persistent SSH session (and remote agent) is up.", "Connected", "Down"))
-panels.append(stat("Last backup", (18, y, 6, 4),
-    [target('time() - max(gadget_backup_last_success_timestamp_seconds{kind="latest"})', "hourly", instant=True),
-     target('time() - max(gadget_backup_last_success_timestamp_seconds{kind="daily"})', "daily", "B", instant=True)],
-    "Age of the newest complete backup on /service/shire. Hourly should stay under ~1h; daily under ~1d.",
-    "s", [{"color": GOOD, "value": None}, {"color": WARN, "value": 2 * 3600}, {"color": CRIT, "value": 26 * 3600}]))
-panels.append(stat("Storage", (18, y + 4, 6, 4),
-    [target('max(gadget_storage_bytes{location="local_vm"})', "local DB", instant=True),
-     target('max(gadget_storage_bytes{location="shire_backup"})', "shire backups", "B", instant=True)],
-    "Local database (limit 4.5 GiB; backups refuse above it) and total backup size on shire (hard budget 10 GB).",
-    "bytes", [{"color": GOOD, "value": None}, {"color": WARN, "value": 4e9}, {"color": CRIT, "value": 4.8e9}], decimals=1))
-y += 8
-
 panels.append(row("CPU and load", y)); y += 1
 panels.append(ts("CPU utilization", (0, y, 8, 9),
     [target(f'100 * (1 - sum by (host) (rate(gadget_cpu_seconds_total{{{H}, mode=~"idle|iowait"}}[$__interval])) '
@@ -118,7 +95,7 @@ panels.append(ts("CPU utilization", (0, y, 8, 9),
     "percent", host_overrides(), 0, 100))
 panels.append(ts("Load average", (8, y, 8, 9),
     [target(f'node_load1{{{H}}}', "{{host}} 1m"), target(f'node_load5{{{H}}}', "{{host}} 5m", "B")],
-    "1-minute (solid) and 5-minute (dashed) load averages. Compare with core counts: arnor 256, gondor 128.",
+    "1-minute (solid) and 5-minute (dashed) load averages. Compare with core counts: arnor 256, gondor 128, shire 32.",
     "short", host_overrides("5m")))
 panels.append(ts("Load per core", (16, y, 8, 9),
     [target(f'node_load1{{{H}}} / on (host) gadget_cpu_count{{{H}}}', "{{host}} 1m"),
@@ -128,12 +105,18 @@ panels.append(ts("Load per core", (16, y, 8, 9),
 y += 9
 
 panels.append(row("Memory and swap", y)); y += 1
-panels.append(ts("Memory available", (0, y, 12, 9),
+panels.append(ts("Memory available", (0, y, 8, 9),
     [target(f'node_memory_MemAvailable_bytes{{{H}}}', "{{host}} available"),
      target(f'node_memory_MemTotal_bytes{{{H}}}', "{{host}} total", "B")],
     "Available (solid) is how much memory new work can still use, counting cache the kernel would give back. Total (dashed) is installed RAM.",
     "bytes", host_overrides("total")))
-panels.append(ts("Swap free", (12, y, 8, 9),
+panels.append(ts("Direct reclaim stalls", (8, y, 6, 9),
+    [target(f'sum by (host) (rate({{__name__=~"node_vmstat_allocstall_.*", {H}}}[$__interval]))', "{{host}}")],
+    "Times per second a memory allocation stalled to reclaim memory itself (allocstall, all "
+    "zones, from /proc/vmstat). It slows whatever process is allocating, even while memory "
+    "available looks fine. 0 is normal.",
+    "cps", host_overrides()))
+panels.append(ts("Swap free", (14, y, 6, 9),
     [target(f'node_memory_SwapFree_bytes{{{H}}}', "{{host}} free"),
      target(f'node_memory_SwapTotal_bytes{{{H}}}', "{{host}} total", "B")],
     "Free swap (solid) against total swap (dashed). gondor has no swap configured, so both are 0.",
@@ -152,8 +135,10 @@ panels.append(ts("Login time", (0, y, 24, 8),
     "Time for a brand-new interactive SSH login to reach a usable shell, probed every 5 minutes "
     "(every 15 after repeated timeouts). Timeouts (60 s) show as FAIL on ssh_login in Check status.",
     "s", host_overrides()))
-stages = panel("timeseries", "Login stages: $host", (0, y + 8, 24, 9),
-    [target(f'gadget_ssh_login_seconds{{host="$host", stage="{st}"}}', st, ref)
+# Repeated over $login_host (hosts with login probe data), not $host: shire
+# has no login probe (login_probe = false in hosts.toml).
+stages = panel("timeseries", "Login stages: $login_host", (0, y + 8, 24, 9),
+    [target(f'gadget_ssh_login_seconds{{host="$login_host", stage="{st}"}}', st, ref)
      for st, ref in (("connect", "A"), ("auth", "B"), ("shell", "C"))],
     "Where the login time goes, stacked. connect: DNS and TCP. auth: key exchange and authentication, "
     "which on these hosts reads ~/.ssh/authorized_keys from the NFS home directory. shell: session setup, "
@@ -166,13 +151,23 @@ stages = panel("timeseries", "Login stages: $host", (0, y + 8, 24, 9),
      "spanNulls": 600000, "axisSoftMin": 0, "stacking": {"mode": "normal", "group": "A"}},
     {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
      "tooltip": {"mode": "multi", "sort": "none"}},
-    extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2})
+    extra={"repeat": "login_host", "repeatDirection": "h", "maxPerRow": 2})
 panels.append(stages)
 y += 17
 
 def per_call(metric, sel, by):
-    return (f'sum by ({by}) (rate(gadget_nfs_{metric}_seconds_total{{{sel}}}[$__interval])) '
-            f'/ sum by ({by}) (rate(gadget_nfs_ops_total{{{sel}}}[$__interval]))')
+    def r(m):
+        r = f'rate({m}{{{sel}}}[$__interval])'
+        if by == "op":
+            r = f'label_replace({r}, "op", "OTHER", "op", "{NFS_STATE_OPS}")'
+        return f'sum by ({by}) ({r})'
+    return f'{r(f"gadget_nfs_{metric}_seconds_total")} / {r("gadget_nfs_ops_total")}'
+
+def fs_overrides():
+    return host_overrides() + [
+        {"matcher": {"id": "byRegexp", "options": f"/ {fs}$/"},
+         "properties": [{"id": "custom.lineStyle", "value": style}]}
+        for fs, style in FS_STYLES.items()]
 
 panels.append(row("NFS", y)); y += 1
 for i, fs in enumerate(NFS_FS):
@@ -190,10 +185,100 @@ for i, fs in enumerate(NFS_FS):
         "s", host_overrides()))
 y += 16
 
+panels.append(row("Stuck processes, NFS state and RDMA", y)); y += 1
+panels.append(ts("Processes in D state", (0, y, 8, 8),
+    [target(f'gadget_processes{{{H}, state="D"}}', "{{host}}")],
+    "Processes in uninterruptible sleep (state D), sampled every minute. These are usually "
+    "waiting on I/O, often NFS, and can't be killed until it completes. A few for a moment is "
+    "normal; a count that stays up means something is stuck. This was the first visible "
+    "symptom of the November 2026 outage (hung Jupyter kernels).",
+    "short", host_overrides()))
+panels.append(ts("NFS state manager threads", (8, y, 8, 8),
+    [target(f'gadget_nfs_state_manager_threads{{{H}}}', "{{host}}")],
+    "NFSv4 client kernel threads (\"<server>-manager\") recovering lease or delegation state, "
+    "sampled every minute. Normally 0: one appears briefly when a server asks for state back. "
+    "Present at sample after sample means recovery is looping, as in the November 2026 outage.",
+    "short", host_overrides()))
+panels.append(ts("TEST_STATEID share of NFS calls", (16, y, 8, 8),
+    [target(f'100 * sum by (host) (rate(gadget_nfs_ops_total{{{H}, op="TEST_STATEID"}}[$__interval])) '
+            f'/ sum by (host) (rate(gadget_nfs_ops_total{{{H}}}[$__interval]))', "{{host}}")],
+    "TEST_STATEID calls as a percent of all NFS calls to helios, shire and shiren. The client "
+    "sends TEST_STATEID to check whether state it holds is still valid after the server "
+    "revoked some. Normally near 0; above a few percent is abnormal. In the November 2026 "
+    "outage it was 81% of all NFSv4 calls.",
+    "percent", host_overrides(), 0))
+y += 8
+panels.append(ts("TEST_STATEID calls", (0, y, 8, 8),
+    [target(f'sum by (host, fs) (rate(gadget_nfs_ops_total{{{H}, op="TEST_STATEID"}}[$__interval]))', "{{host}} {{fs}}")],
+    "TEST_STATEID calls per second, per host and NFS filesystem (helios solid, shire dashed, "
+    "shiren dotted).",
+    "ops", fs_overrides()))
+panels.append(ts("DELEGRETURN calls", (8, y, 8, 8),
+    [target(f'sum by (host, fs) (rate(gadget_nfs_ops_total{{{H}, op="DELEGRETURN"}}[$__interval]))', "{{host}} {{fs}}")],
+    "Delegations handed back to the server, per second, per host and filesystem (helios solid, "
+    "shire dashed, shiren dotted). A delegation lets a client cache a file; it returns one when "
+    "done or when the server recalls it. A sustained high rate is delegation churn, which "
+    "preceded the November 2026 outage. Their queue wait is on 'Queue wait by operation'.",
+    "ops", fs_overrides()))
+panels.append(panel("state-timeline", "RDMA port state", (16, y, 8, 8),
+    [target(f'max by (host, device, port) (node_infiniband_state_id{{{H}}} unless on (host, device, port) '
+            f'node_infiniband_physical_state_id{{{H}}} == 3) '
+            f'or max by (host, device, port) (node_infiniband_physical_state_id{{{H}}} == 3) * 0 - 1',
+            "{{host}} {{device}}")],
+    "State of each RDMA (RoCE) port, from /sys/class/infiniband. NFS to shire runs over RoCE. "
+    "Disabled (gray) is a port whose link is disabled, normally because it isn't cabled: "
+    "mlx5_1 on arnor and gondor. shire has one port, the bond mlx5_bond_0. Any other port that isn't ACTIVE is a problem.",
+    None, None, {"lineWidth": 0, "fillOpacity": 80},
+    {"showValue": "never", "mergeValues": True, "rowHeight": 0.8,
+     "legend": {"showLegend": False}, "tooltip": {"mode": "single"}},
+    mappings=[{"type": "value", "options": {
+        "4": {"text": "ACTIVE", "color": GOOD, "index": 0},
+        "1": {"text": "DOWN", "color": CRIT, "index": 1},
+        "2": {"text": "INIT", "color": WARN, "index": 2},
+        "3": {"text": "ARMED", "color": WARN, "index": 3},
+        "5": {"text": "ACTIVE_DEFER", "color": WARN, "index": 4},
+        "-1": {"text": "Disabled", "color": "#8f8e86", "index": 5}}}],
+    color={"mode": "thresholds"},
+    # Thresholds give the same colors as the mappings: -1 gray, 1 red, 2-3 and
+    # 5 yellow, 4 green.
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "#8f8e86", "value": None}, {"color": CRIT, "value": 0}, {"color": WARN, "value": 2},
+        {"color": GOOD, "value": 4}, {"color": WARN, "value": 5}]}))
+y += 8
+# A counter is drawn over the whole range if it moved anywhere in it, so a lone
+# 5-minute burst still gets a line (a single non-null point draws nothing). A
+# quiet host gets a "no errors" line, so "No data" only means the check is broken.
+# Only the error counters; the congestion ones are on the NFS server dashboard.
+rdma = f'gadget_rdma_hw_counter_total{{host="$host", counter=~"{"|".join(RDMA_COUNTERS)}"}}'
+moved = f'increase({rdma}[$__range] @ end())'
+panels.append(panel("timeseries", "RDMA errors and retransmissions: $host", (0, y, 24, 9),
+    [target(f'sum by (counter) (rate({rdma}[$__interval])) and on (counter) (sum by (counter) ({moved}) > 0)',
+            "{{counter}}"),
+     target(f'sum(0 * {rdma}) unless on () (sum({moved}) > 0)', "no errors", "B")],
+    "Events per second from the RDMA adapters' hardware counters, all ports summed; only "
+    "counters that moved in the time range are drawn, and a green \"no errors\" line at 0 "
+    "when none did. packet_seq_err and out_of_sequence: "
+    "packets lost or reordered. local_ack_timeout_err: a peer didn't acknowledge in time. "
+    "roce_adp_retrans and roce_slow_restart_cnps: retransmissions and congestion slow-downs. "
+    "*_remote_access_errors and *_cqe_error: failed operations. The November 2026 outage "
+    "showed hundreds of thousands of sequence errors and retransmissions.",
+    "cps",
+    [{"matcher": {"id": "byName", "options": c},
+      "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": col}}]}
+     for c, col in {**RDMA_COUNTERS, "no errors": GOOD}.items()],
+    {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never",
+     "spanNulls": 600000, "axisSoftMin": 0, "axisSoftMax": 1},
+    {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
+     "tooltip": {"mode": "multi", "sort": "desc"}},
+    extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2}))
+y += 9
+
 panels.append(row("NFS queue wait by operation", y)); y += 1
+# Repeated over $nfs_host, not $host: shire is the server, not a client, and
+# would only add panels that are always empty.
 for i, fs in enumerate(NFS_FS):
-    sel = f'host="$host", fs="{fs}"'
-    panels.append(panel("timeseries", f"Queue wait by operation: $host, {fs}", (0, y + 9 * i, 24, 9),
+    sel = f'host="$nfs_host", fs="{fs}"'
+    panels.append(panel("timeseries", f"Queue wait by operation: $nfs_host, {fs}", (0, y + 9 * i, 24, 9),
         [target(per_call("queue", sel, "op"), "{{op}}")],
         f"Average client-side queue wait per call to {fs}, per NFS operation. OPEN includes "
         "OPEN_NOATTR; OTHER is every remaining operation (DELEGRETURN, SETATTR, RENAME, READDIR, "
@@ -206,7 +291,7 @@ for i, fs in enumerate(NFS_FS):
          "spanNulls": 600000, "axisSoftMin": 0},
         {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
          "tooltip": {"mode": "multi", "sort": "desc"}},
-        extra={"repeat": "host", "repeatDirection": "h", "maxPerRow": 2}))
+        extra={"repeat": "nfs_host", "repeatDirection": "h", "maxPerRow": 2}))
 y += 27
 
 def gpu_overrides(dash_suffix=None):
@@ -249,7 +334,7 @@ for i, (period, what) in enumerate((("1d", "day"), ("7d", "week"))):
         f"used {user_usage.CPU_CORES}+ CPU cores on average, or held {user_usage.MEM_BYTES / 2**30:g}+ GiB "
         f"of RAM, or kept a GPU {user_usage.GPU_PERCENT}%+ busy, or held "
         f"{user_usage.GPU_MEM_BYTES / 2**30:g}+ GiB of GPU memory. root, jhub-admin, "
-        "astro-gadget and system accounts are not counted.",
+        "the monitor's own accounts and system accounts are not counted.",
         "short",
         [{"matcher": {"id": "byName", "options": n},
           "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
@@ -261,32 +346,10 @@ for i, (period, what) in enumerate((("1d", "day"), ("7d", "week"))):
         extra={"timeFrom": "90d", "maxDataPoints": 3000}, decimals=0))
 y += 9
 
-internals = [
-    ts("Check duration", (0, y + 1, 12, 8),
-       [target(f'gadget_check_duration_seconds{{{H}}}', "{{host}} / {{check}}")],
-       "Wall time of each check on the target.", "s", host_overrides()),
-    ts("Check outcome by reason", (12, y + 1, 12, 8),
-       [target(f'sum by (host, status) (gadget_check_status{{{H}, status!="ok"}})', "{{host}} {{status}}")],
-       "Number of checks per host in each non-OK state: error, timeout, skipped_running (previous run still stuck), unreachable (no session), lost (session died mid-check).",
-       "short", host_overrides()),
-    ts("Clock skew", (0, y + 9, 8, 8),
-       [target(f'gadget_clock_skew_seconds{{{H}}}', "{{host}}")],
-       "Target clock minus collector clock, from ping round trips. Check timestamps use the target's clock.",
-       "s", host_overrides()),
-    ts("SSH reconnects", (8, y + 9, 8, 8),
-       [target(f'increase(gadget_ssh_reconnects_total{{{H}}}[1h])', "{{host}}")],
-       "Session drops per hour. Should be 0 in normal operation.", "short", host_overrides()),
-    ts("Lines dropped", (16, y + 9, 8, 8),
-       [target(f'gadget_check_lines_dropped{{{H}}} > 0', "{{host}} / {{check}}")],
-       "Malformed or excess (>500) output lines discarded by the collector. Empty is good.",
-       "short", host_overrides()),
-]
-panels.append(row("Collector internals", y, collapsed=True, panels=internals))
-
 dash = {
     "uid": "gadget-hosts-overview",
     "title": "Hosts overview",
-    "description": "arnor and gondor, sampled over SSH every 5 minutes by gadget-monitor.",
+    "description": "arnor, gondor and shire, sampled over SSH every 5 minutes by gadget-monitor.",
     "tags": ["gadget-monitor"],
     "schemaVersion": 41,
     "editable": False,
@@ -295,11 +358,28 @@ dash = {
     "time": {"from": "now-24h", "to": "now"},
     "timepicker": {},
     "timezone": "browser",
+    # The collector's own health (check status, SSH sessions, backups) lives on
+    # its own dashboard so this landing page shows only the hosts (issue #32).
+    "links": [{"type": "link", "title": "Gadget collector internals", "icon": "dashboard",
+               "url": "/d/gadget-collector-internals", "keepTime": True, "includeVars": True,
+               "tooltip": "Check status, SSH sessions, backups", "targetBlank": False}],
     "templating": {"list": [{
         "name": "host", "label": "Host", "type": "query", "datasource": DS,
         "query": {"query": "label_values(gadget_ssh_connected, host)", "refId": "host"},
         "definition": "label_values(gadget_ssh_connected, host)",
         "refresh": 2, "multi": True, "includeAll": True, "allValue": ".*",
+        "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}, {
+        # Hidden: the selected hosts with a login probe.
+        "name": "login_host", "label": "Login probe", "type": "query", "datasource": DS, "hide": 2,
+        "query": {"query": 'label_values(gadget_ssh_login_seconds{host=~"$host"}, host)', "refId": "login_host"},
+        "definition": 'label_values(gadget_ssh_login_seconds{host=~"$host"}, host)',
+        "refresh": 2, "multi": True, "includeAll": True,
+        "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}, {
+        # Hidden: the selected hosts that are NFS clients (run the nfs check).
+        "name": "nfs_host", "label": "NFS client", "type": "query", "datasource": DS, "hide": 2,
+        "query": {"query": 'label_values(gadget_nfs_ops_total{host=~"$host"}, host)', "refId": "nfs_host"},
+        "definition": 'label_values(gadget_nfs_ops_total{host=~"$host"}, host)',
+        "refresh": 2, "multi": True, "includeAll": True,
         "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}]},
     "panels": panels,
 }

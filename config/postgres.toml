@@ -25,6 +25,6 @@ timeout = 15    # seconds for each part of a probe
 name = "mpg"
 address = "mpg.astro.washington.edu"
 
-# [[server]]
-# name = "deep"
-# address = "<deep db vm>.astro.washington.edu"
+[[server]]
+name = "dpg"
+address = "dpg.astro.washington.edu"
