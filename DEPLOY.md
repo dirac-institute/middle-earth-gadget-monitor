@@ -23,13 +23,14 @@ sudo ./init.sh --fresh
 Then verify:
 
 ```bash
-podman ps                                   # four gadget-monitor-* containers, Up
-podman logs gadget-monitor-collector        # "arnor: agent up ...", "gondor: agent up ..."
+podman ps                                   # five gadget-monitor-* containers, Up
+podman logs gadget-monitor-collector        # "<host>: agent up ..." for arnor, gondor, shire
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/   # 200
 ```
 
 Open the site, check that the **Hosts overview** dashboard shows data for
-both hosts, and that the **Last backup** tile shows an age under an hour.
+every host, and that the **Last backup** tile on **Gadget collector
+internals** shows an age under an hour.
 
 ## What each piece does
 
@@ -37,16 +38,19 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 |---|---|
 | `service.conf` | Service account name, uid and gid (astro-gadget). The single source of truth; everything else reads it via `.env` |
 | `init.sh` | Host-level setup only: podman, the service account, SSH hardening, `/local` and shire directories, the Grafana admin password, `.env`, and seeding/restoring local state |
-| `compose.yaml` | The four containers and their mounts |
-| `collector/` | Collector image: `collector.py` (VictoriaMetrics writer, SSH key, startup) and one module per kind of probe: `ssh_checks.py` (persistent SSH sessions, check scheduler), `ssh_login.py` (login probe), `websites.py` (website probe), `postgres.py` (PostgreSQL servers), `globus.py` (Globus Connect Server nodes), `metrics_storage.py` (metrics database size and free space on `/local`); plus the agent, checks and config copied in |
+| `compose.yaml` | The five containers and their mounts |
+| `collector/` | Collector image: `collector.py` (VictoriaMetrics writer, SSH key, startup) and one module per kind of probe: `ssh_checks.py` (persistent SSH sessions, check scheduler), `ssh_login.py` (login probe), `websites.py` (website probe), `postgres.py` (PostgreSQL servers), `globus.py` (Globus Connect Server nodes), `jupyterhub.py` (JupyterHubs), `service_vms.py` (service VM resources), `metrics_storage.py` (metrics database size and free space on `/local`); plus the agent, checks and config copied in |
 | `agent/agent.py` | Remote agent, sent to each target over the SSH session. Python 3.9, stdlib only |
 | `checks/*.sh` | One check per file (see README.md, "Adding a check") |
 | `config/hosts.toml` | Hosts to monitor |
 | `config/websites.toml` | Websites the collector fetches from this VM (see README.md, "Websites") |
 | `config/postgres.toml` | PostgreSQL servers the collector probes from this VM (see README.md, "PostgreSQL servers") |
 | `config/globus.toml` | Globus Connect Server nodes the collector probes from this VM (see README.md, "Globus Connect Server") |
+| `config/jupyterhubs.toml` | JupyterHubs the collector probes from this VM (see README.md, "JupyterHubs") |
+| `config/service_vms.toml` | Service VMs whose monitor the collector polls (see README.md, "Service VMs") |
 | `config/known_hosts` | Pinned SSH host keys for the targets |
-| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_postgres.py`, `gen_globus.py`, `gen_metrics_storage.py`, `gen_users.py`, sharing `user_usage.py`) |
+| `grafana/` | Grafana image: provisioned datasource and dashboards, entrypoint that syncs the admin password and locks the Admin folder, dashboard generators (`gen_hosts_overview.py`, `gen_websites.py`, `gen_postgres.py`, `gen_globus.py`, `gen_jupyterhub.py`, `gen_service_vms.py`, `gen_collector_internals.py`, `gen_metrics_storage.py`, `gen_nfs_server.py`, `gen_users.py`, sharing `user_usage.py`) |
+| `monitoring/` | Service VM monitor image and its compose settings (`monitoring/compose.yaml`, pulled into `compose.yaml` with `extends`): this VM's CPU, memory and disks on port 9110. The same folder goes into other service repos; see `monitoring/README.md` |
 | `backup/` | Backup image: `backup-loop.sh` (scheduler), `backup-once.sh`, `restore.sh`, vmbackup/vmrestore binaries |
 | `dev-startup.sh` | Local development with Docker |
 | `tools/` | Checking dashboards from the VM: `panel_data.py` (what each panel would draw, as text), `screenshot.sh` (PNG of a panel or dashboard). Not deployed; see README.md, "Checking a dashboard" |
@@ -59,8 +63,9 @@ both hosts, and that the **Last backup** tile shows an age under an hour.
 | `gadget-monitor-grafana` | built from `grafana/` | `/local/gadget-monitor/grafana` | `127.0.0.1:8080` |
 | `gadget-monitor-collector` | built from `collector/Dockerfile` | none (the SSH key is copied to its tmpfs at start) | outbound SSH |
 | `gadget-monitor-backup` | built from `backup/` | `/local/gadget-monitor`, shire `backup/` | compose network |
+| `gadget-monitor-service-vm` | built from `monitoring/` | none (the VM's `/` read-only at `/host`) | port 9110 on every interface |
 
-All four run as astro-gadget (uid 1734450). That is required to read the
+All five run as astro-gadget (uid 1734450). That is required to read the
 secrets and write the backups on shire, which is exported with
 `root_squash`.
 
@@ -79,7 +84,7 @@ podman compose up -d --build --force-recreate
 you also pass `--force-recreate`.
 
 The database and Grafana state live on `/local`, so recreating containers
-loses nothing. Restarting the collector reconnects to both hosts within a
+loses nothing. Restarting the collector reconnects to every host within a
 second or two. The agents from the old sessions exit when their session
 closes.
 
@@ -152,20 +157,25 @@ podman compose up -d
 
 ## Verifying a deployment
 
-1. `podman ps`: four containers `Up`. Run it again a minute later and check
+1. `podman ps`: five containers `Up`. Run it again a minute later and check
    the uptimes haven't reset.
-2. `podman logs gadget-monitor-collector`: `agent up` for both hosts, with
+2. `podman logs gadget-monitor-collector`: `agent up` for every host, with
    no repeated `connect failed`.
-3. Dashboard: data for both hosts, every check `OK`, both SSH sessions
+3. Dashboards: **Hosts overview** has data for every host; on **Gadget
+   collector internals** every check is `OK` and every SSH session
    `Connected`. **Websites** shows every site `Up`, or a reason under
-   "Failures by reason" that matches what a browser sees.
-4. On a target, `ps -u astro-gadget -f` should show exactly one
+   "Failures by reason" that matches what a browser sees. **JupyterHub**
+   shows both hubs `Up`, and the hub and proxy `Running` on both hosts.
+   **Service VMs** shows the monitor `Up` for every VM in
+   `config/service_vms.toml`.
+4. On a target, `ps -u astro-gadget -f` (on shire, `ps -u astro-gadgetmon -f`)
+   should show exactly one
    `python3 -I -u -c import sys;...` agent.
-5. **Last backup** shows under an hour after the first `:07`.
+5. **Last backup** (Gadget collector internals) shows under an hour after the first `:07`.
 6. `podman logs gadget-monitor-grafana` says `Admin folder restricted to
    admins (anonymous gets 403)`, and logged out, the dashboard list shows
    only the gadget-monitor folder.
-7. Reboot the VM. Afterwards `podman ps` shows all four containers again,
+7. Reboot the VM. Afterwards `podman ps` shows all five containers again,
    because `podman-restart.service` is enabled by `init.sh`.
 
 ## Troubleshooting
@@ -173,11 +183,11 @@ podman compose up -d
 | Symptom | Look at |
 |---|---|
 | A host shows SSH `Down` | `podman logs gadget-monitor-collector`. "Host key verification failed" means the target's host key changed; update `config/known_hosts` once you're sure it's legitimate. "Permission denied" means the key or account on the target. Timeouts are network problems |
-| A check is `FAIL` | Open **Collector internals → Check outcome by reason**. `error`: run the check by hand (README.md). `timeout`: the check is too slow, or something it touches is hanging. `skipped_running`: a previous run is stuck and can't be killed, which almost always means hung NFS on the target |
+| A check is `FAIL` | Open **Gadget collector internals → Check outcome by reason**. `error`: run the check by hand (README.md). `timeout`: the check is too slow, or something it touches is hanging. `skipped_running`: a previous run is stuck and can't be killed, which almost always means hung NFS on the target |
 | `ssh_login` slow or `FAIL` | The **Login stages** panel shows where the time goes. Slow `auth` usually means the directory service (LDAP/sssd) or the NFS home directory (`authorized_keys` lives there). Slow `shell` points at the home directory or login scripts. The persistent sessions keep collecting the other checks either way |
 | NFS queue wait high | **NFS queue wait by operation** shows which calls are waiting. High WRITE queue wait alone usually means a large write burst (the client is throttling itself); everything rising together points at the server or network. Check **Round-trip time** too. NFS graphs going blank while `nfs` stays OK means no calls finished on that filesystem: idle, or hung |
 | Gaps without failures | The collector itself was down: `podman ps`, `podman logs` |
-| **Last backup** growing | `podman logs gadget-monitor-backup`. `REFUSED` explains itself; otherwise check that shire is mounted and writable by astro-gadget |
+| **Last backup** growing (Gadget collector internals) | `podman logs gadget-monitor-backup`. `REFUSED` explains itself; otherwise check that shire is mounted and writable by astro-gadget |
 | Grafana log says the Admin folder could not be restricted | The per-user dashboard may be visible to anonymous viewers. Restart Grafana (`podman restart gadget-monitor-grafana`), or as admin open the Admin folder, Permissions, and remove the Viewer and Editor roles |
 | Can't log in as admin | The password is re-applied from shire on every Grafana start: `sudo -u astro-gadget cat /service/shire/gadget-monitor/secrets/grafana-admin-password` |
 

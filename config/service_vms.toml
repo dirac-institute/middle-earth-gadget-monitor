@@ -1,0 +1,29 @@
+# VMs whose CPU, memory and disks the collector polls, from this VM.
+#
+# Each VM runs the service VM monitor from monitoring/ (see monitoring/README.md
+# for adding it to a service's repo), which serves its numbers on port 9110.
+# Every interval the collector fetches them and imports them with a
+# `service_vm` label. The Service VMs dashboard picks up a new VM with no change.
+#
+# `name` becomes the `service_vm` label: keep it stable, a renamed VM starts new
+# series.
+#
+# Optional per VM:
+#   port         default 9110
+#   metrics_url  default "http://<address>:<port>/metrics"
+
+interval = 60   # seconds between polls of each VM
+timeout = 10    # seconds for each poll
+
+[[service_vm]]
+name = "gadget"
+address = "gadget.astro.washington.edu"
+
+# PostgreSQL VMs (middle-earth-postgres): the same names as in postgres.toml.
+[[service_vm]]
+name = "mpg"
+address = "mpg.astro.washington.edu"
+
+[[service_vm]]
+name = "dpg"
+address = "dpg.astro.washington.edu"

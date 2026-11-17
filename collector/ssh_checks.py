@@ -207,6 +207,7 @@ class Host:
         self.name = cfg["name"]
         self.address = cfg["address"]
         self.user = cfg.get("user", user)
+        self.login_probe = cfg.get("login_probe", True)
         wanted = cfg.get("checks", [c.name for c in checks.values()
                                     if not c.hosts or self.name in c.hosts])
         missing = set(wanted) - checks.keys()
