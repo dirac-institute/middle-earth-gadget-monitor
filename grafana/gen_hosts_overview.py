@@ -14,14 +14,17 @@ DS = {"type": "prometheus", "uid": "victoriametrics"}
 HOST_COLORS = {"arnor": "#3987e5", "gondor": "#d95926", "shire": "#008300"}  # dataviz categorical slots 1, 2, 6 (dark)
 # Login stages use slots 3-5 so they never borrow a host's color.
 STAGE_COLORS = {"connect": "#199e70", "auth": "#c98500", "shell": "#d55181"}
-# Conda probe stages take the login stages' slots; locations are told apart
-# by line style, as NFS filesystems are (shire solid).
-CONDA_STAGE_COLORS = {"activate": "#199e70", "python": "#c98500", "import": "#d55181"}
+# Conda probe locations are told apart by line style, as NFS filesystems are
+# (shire solid).
 CONDA_STYLES = {"shiren": {"fill": "dot", "dash": [2, 4]}, "home": {"fill": "dash", "dash": [10, 6]}}
-# The conda check's locations and per-location timeout, from the check itself.
+# The conda check's locations, packages and per-location timeout, from the check itself.
 CONDA_CHECK = (Path(__file__).resolve().parent.parent / "checks" / "conda.sh").read_text()
 CONDA_ENVS = re.findall(r"^\s+(\w+)=/", re.search(r"^ENVS=\((.*?)^\)", CONDA_CHECK, re.M | re.S).group(1), re.M)
+CONDA_PACKAGES = re.search(r'^PACKAGES="(.*)"', CONDA_CHECK, re.M).group(1).split()
 CONDA_ENV_TIMEOUT = int(re.search(r"^ENV_TIMEOUT=(\d+)", CONDA_CHECK, re.M).group(1))
+# In the per-location import panels the package is the color, in the slots no
+# host uses (3, 4, 5, 7, 8), and the host is the line style (gondor dashed).
+CONDA_PACKAGE_COLORS = dict(zip(CONDA_PACKAGES, ["#199e70", "#c98500", "#d55181", "#9085e9", "#e66767"], strict=True))
 # NFS ops take categorical slots 1-8 in order; OTHER is neutral gray, not a hue.
 OP_COLORS = {"READ": "#3987e5", "WRITE": "#d95926", "GETATTR": "#199e70", "LOOKUP": "#c98500",
              "ACCESS": "#d55181", "OPEN": "#008300", "CLOSE": "#9085e9", "DELEGRETURN": "#e66767",
@@ -193,13 +196,13 @@ stages = panel("timeseries", "Login stages: $login_host", (0, y + 8, 24, 9),
 panels.append(stages)
 y += 17
 
-# The conda probe (checks/conda.sh) runs on arnor and gondor only: the
-# stage panels repeat over $conda_host, one line of them per location.
+# The conda probe (checks/conda.sh) runs on arnor and gondor only.
 panels.append(row("Python and conda startup", y)); y += 1
+pkgs = ", ".join(CONDA_PACKAGES)
 panels.append(ts("Conda startup time", (0, y, 24, 8),
     [target(f'gadget_conda_seconds{{{H}, stage="total"}}', "{{host}} {{env}}")],
     "Time to activate a conda environment, start its python3 and import the packages in checks/conda.sh "
-    "(lsdb), in a clean shell, probed every 5 minutes. The same environment is installed in three "
+    f"({pkgs}), in a clean shell, probed every 5 minutes. The same environment is installed in three "
     "locations: shire (solid), shiren (dotted) and astro-gadget's home directory on helios (dashed). "
     f"A location that fails or takes over {CONDA_ENV_TIMEOUT} s has no point here.",
     "s", host_overrides() + [
@@ -208,24 +211,18 @@ panels.append(ts("Conda startup time", (0, y, 24, 8),
         for env, style in CONDA_STYLES.items()]))
 y += 8
 for env in CONDA_ENVS:
-    sel = f'host="$conda_host", env="{env}"'
-    panels.append(panel("timeseries", f"Conda startup stages, {env}: $conda_host", (0, y, 24, 8),
-        [target(f'gadget_conda_seconds{{{sel}, stage="activate"}}', "activate", "A"),
-         target(f'gadget_conda_seconds{{{sel}, stage="python"}}', "python", "B"),
-         target(f'gadget_conda_seconds{{{sel}, stage="import"}}', "import {{package}}", "C")],
-        f"Where the startup time goes for the environment on {env}, stacked. activate: source conda.sh and "
-        "conda activate (this runs conda's own Python, from the same location). python: start the "
-        "environment's python3 and print. import: import each package, in one interpreter. "
-        "A location that hangs shows only the stages it finished.",
+    panels.append(ts(f"Package import time, {env}", (0, y, 24, 8),
+        [target(f'gadget_conda_seconds{{{H}, env="{env}", stage="import"}}', "{{host}} {{package}}")],
+        f"Time to import each package from the environment on {env}, as part of the startup time above. "
+        f"They are imported in this order ({pkgs}) in one interpreter, so each is the time that package "
+        "adds on top of those before it (pandas without numpy, which it loads first). Solid: arnor, "
+        "dashed: gondor. A location that hangs shows only the packages it finished.",
         "s",
-        [{"matcher": {"id": "byRegexp", "options": f"/^{st}/"},
+        [{"matcher": {"id": "byRegexp", "options": f"/ {p}$/"},
           "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
-         for st, c in CONDA_STAGE_COLORS.items()],
-        {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 70, "showPoints": "never",
-         "spanNulls": 600000, "axisSoftMin": 0, "stacking": {"mode": "normal", "group": "A"}},
-        {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True},
-         "tooltip": {"mode": "multi", "sort": "none"}},
-        extra={"repeat": "conda_host", "repeatDirection": "h", "maxPerRow": 2}))
+         for p, c in CONDA_PACKAGE_COLORS.items()] +
+        [{"matcher": {"id": "byRegexp", "options": "/^gondor /"},
+          "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 6]}}]}]))
     y += 8
 
 def per_call(metric, sel, by):
@@ -447,12 +444,6 @@ dash = {
         "name": "login_host", "label": "Login probe", "type": "query", "datasource": DS, "hide": 2,
         "query": {"query": 'label_values(gadget_ssh_login_seconds{host=~"$host"}, host)', "refId": "login_host"},
         "definition": 'label_values(gadget_ssh_login_seconds{host=~"$host"}, host)',
-        "refresh": 2, "multi": True, "includeAll": True,
-        "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}, {
-        # Hidden: the selected hosts that run the conda probe.
-        "name": "conda_host", "label": "Conda probe", "type": "query", "datasource": DS, "hide": 2,
-        "query": {"query": 'label_values(gadget_conda_seconds{host=~"$host"}, host)', "refId": "conda_host"},
-        "definition": 'label_values(gadget_conda_seconds{host=~"$host"}, host)',
         "refresh": 2, "multi": True, "includeAll": True,
         "current": {"selected": True, "text": ["All"], "value": ["$__all"]}, "sort": 1}, {
         # Hidden: the selected hosts that are NFS clients (run the nfs check).

@@ -310,7 +310,10 @@ after another, the probe times:
 - `python`: starting the environment's `python3` until it prints (its
   `sys.prefix`, which proves it is the environment's);
 - `import`: importing each package in `PACKAGES` in `checks/conda.sh`
-  (`lsdb`), one interpreter, timed per package (`package` label);
+  (`numpy`, `pandas`, `astropy`, `torch`, `lsdb`, in that order), one
+  interpreter, timed per package (`package` label). Each time is what that
+  package adds on top of those before it: pandas is timed without numpy,
+  which is already loaded;
 - `total`: all of the above, recorded only when every stage succeeded.
 
 `gadget_conda_success{env}` is 1 when a location got through every stage
@@ -318,31 +321,37 @@ within `ENV_TIMEOUT` (60 s); a location that hangs records only the stages it
 finished. It is an ordinary check, run through the persistent session, so it
 does not log in afresh and never includes the login time. The locations
 (`ENVS`) and packages are set at the top of `checks/conda.sh`. Results are on
-Hosts overview, "Python and conda startup".
+Hosts overview, "Python and conda startup": the total per host and location,
+then one panel per location with each package's import time on every host
+(package by color, gondor dashed).
 
 Before each location, the probe drops the files it is about to read from the
-host's page cache (`posix_fadvise(DONTNEED)`, unprivileged), so every run reads
-them from the NFS server again, as a user's first import would. Without that,
-arnor and gondor (over 1 TB of RAM each) keep the ~300 MB cached and the probe
-times only local memory. The NFS server's own cache is left alone: the probe is
-meant to show client-side trouble, and a struggling server still shows. The
-list of files (about 6,400 per location: what conda, python3 and the imports
-load) is built by the probe itself, in `/tmp` on each host, on its first run
-and again whenever `conda/setup.sh` changes the environment. Evicting it takes
-about a second; each run reads ~300 MB per location from the servers.
+host's page cache (`posix_fadvise(DONTNEED)`, unprivileged), so every run
+reads them from the NFS server again, as a user's first import would. Without
+that, arnor and gondor (over 1 TB of RAM each) keep the ~840 MB cached and the
+probe times only local memory. The NFS server's own cache is left alone: the
+probe is meant to show client-side trouble, and a struggling server still
+shows. The list of files (about 6,500 per location: what conda, python3 and
+the imports load) is built by the probe itself, in `/tmp` on each host, on its
+first run and again whenever `conda/setup.sh` changes the environment.
+Evicting it takes about a second; each run reads up to ~840 MB per location
+from the servers (torch is most of it).
 
 The environments are built by `init.sh`, which runs `conda/setup.sh` over SSH
 on arnor, as astro-gadget, once per location (the paths exist only on the
 targets, and a conda install can't be copied: its own path is written into
-it). The script installs Miniconda if it is missing, creates the environment
-if it is missing, and updates it when `conda/environment.yml` has changed;
-otherwise it changes nothing. To add a package to the probe: add it to
-`conda/environment.yml` and to `PACKAGES`, run `sudo ./init.sh`, then rebuild
-the collector. To add a location: add a `name=dir` line to `ENVS` in
-`checks/conda.sh` (the timeout line needs about 65 s more per location),
-run `init.sh`, rebuild the collector and regenerate the Hosts overview
-dashboard (it has a line of stage panels per location). To rebuild one
-location by hand:
+it). The script installs Miniconda (a pinned installer, downloaded over HTTPS
+and not checksummed, so bumping the version is a one-line change) if it is
+missing, creates the environment if it is missing, and updates it when
+`conda/environment.yml` has changed; otherwise it changes nothing. To add a
+package to the probe: add it to `conda/environment.yml` and to `PACKAGES`
+(after its dependencies), run `sudo ./init.sh`, then rebuild the collector and
+regenerate the Hosts overview dashboard (it colors packages from a list of
+five slots in `gen_hosts_overview.py`; a sixth package needs a color there).
+To add a location: add a `name=dir` line to `ENVS` in `checks/conda.sh` (the
+timeout line needs about 65 s more per location), run `init.sh`, rebuild the
+collector and regenerate the Hosts overview dashboard (it has an import panel
+per location). To rebuild one location by hand:
 
 ```bash
 podman exec -i gadget-monitor-collector ssh -T -F /dev/null -i /dev/shm/gadget-ssh-key \
@@ -351,7 +360,7 @@ podman exec -i gadget-monitor-collector ssh -T -F /dev/null -i /dev/shm/gadget-s
 ```
 
 (delete `miniconda3` in that directory first for a clean install). Each
-location takes about 2.5 GB in 145,000 files.
+location takes about 4 GB in 215,000 files.
 
 ## NFS server
 

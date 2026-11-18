@@ -10,4 +10,10 @@ channels:
   - conda-forge
 dependencies:
   - python=3.12
+  - numpy
+  - pandas
+  - astropy
+  # The CPU build, the same on every host: conda-forge would otherwise pick
+  # the CUDA one only where setup.sh happens to run on a GPU host.
+  - pytorch=*=cpu*
   - lsdb
