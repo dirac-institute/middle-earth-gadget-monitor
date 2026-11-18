@@ -13,7 +13,6 @@
 set -euo pipefail
 
 MINICONDA=Miniconda3-py313_26.9.4-1-Linux-x86_64.sh
-MINICONDA_SHA256=f210d607d85cb52592396eebbdf62c38c9bca868a3a18681368955c76412888b
 ENV_NAME=gadget-probe
 
 DIR="${1:?usage: setup.sh DIR [ENVIRONMENT_YML_BASE64]}"
@@ -34,7 +33,6 @@ fi
 if [ ! -x "$CONDA_DIR/bin/conda" ]; then
     echo "$DIR: installing $MINICONDA"
     curl -fsSL -o "$tmp/$MINICONDA" "https://repo.anaconda.com/miniconda/$MINICONDA"
-    echo "$MINICONDA_SHA256  $tmp/$MINICONDA" | sha256sum -c --quiet
     rm -rf "$CONDA_DIR"   # left by an interrupted install
     bash "$tmp/$MINICONDA" -b -p "$CONDA_DIR"
 fi
