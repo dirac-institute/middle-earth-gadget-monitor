@@ -102,14 +102,15 @@ Where the build differs from the original plan:
   bypasses firewalld (podman DNAT), so no VM needs a firewall change, at the
   cost of the numbers being readable by anyone who can reach the VM.
 - **Added after the plan: conda probe** (#43). On arnor and gondor, the
-  time to activate a conda environment, start its python3 and import lsdb,
+  time to activate a conda environment, start its python3 and import numpy,
+  pandas, astropy, torch and lsdb (each timed, #47),
   with the same environment on shire, shiren and astro-gadget's NFS home,
   on Hosts overview. It is an ordinary check (`checks/conda.sh`), so it
   shares the persistent session rather than logging in like the login probe.
   Before each run it drops its own files from the host's page cache, so it
   times the NFS servers, not local memory. `init.sh` builds the environments over
   SSH (`conda/setup.sh`, its own Miniconda per location, conda-forge only).
-  About 30 series.
+  About 50 series.
 - **The VM reboot test has not been run.** It would end the session doing
   the build. `kill -9` of a container was verified to restart it.
 

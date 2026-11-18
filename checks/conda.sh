@@ -16,8 +16,10 @@ ENVS=(
     shiren=/astro/store/shiren/gadget/conda-probe
     home=/astro/users/astro-gadget/conda-probe
 )
-# Imported one after another, each timed. Each must be in conda/environment.yml.
-PACKAGES="lsdb"
+# Imported one after another in one interpreter, each timed, so each time is
+# what that package adds on top of those before it: keep dependencies first.
+# Each must be in conda/environment.yml. gen_hosts_overview.py reads this line.
+PACKAGES="numpy pandas astropy torch lsdb"
 # Seconds for one location (eviction, the timed stages, and rebuilding the
 # eviction list when needed) before it counts as failed. The timeout above
 # covers every location: 3 x (60 + 5 for timeout -k) + 15 to report.
@@ -25,8 +27,8 @@ ENV_TIMEOUT=60
 
 # Before each run the probe drops the files it will read from this host's
 # page cache, so every run reads them from the NFS server, as a user's first
-# import of the day would; otherwise they stay cached here between runs (a few
-# hundred MB against a TB of RAM) and the probe would only time this host's
+# import of the day would; otherwise they stay cached here between runs (under
+# 1 GB against a TB of RAM) and the probe would only time this host's
 # memory. The server's own cache is left alone: client-side trouble is what
 # this is for. POSIX_FADV_DONTNEED needs no privilege and only drops clean
 # pages of these files. It runs under the system python3, on local disk, so

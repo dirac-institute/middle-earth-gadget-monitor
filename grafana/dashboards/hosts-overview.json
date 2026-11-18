@@ -86,34 +86,6 @@
         "sort": 1
       },
       {
-        "name": "conda_host",
-        "label": "Conda probe",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "victoriametrics"
-        },
-        "hide": 2,
-        "query": {
-          "query": "label_values(gadget_conda_seconds{host=~\"$host\"}, host)",
-          "refId": "conda_host"
-        },
-        "definition": "label_values(gadget_conda_seconds{host=~\"$host\"}, host)",
-        "refresh": 2,
-        "multi": true,
-        "includeAll": true,
-        "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
-        },
-        "sort": 1
-      },
-      {
         "name": "nfs_host",
         "label": "NFS client",
         "type": "query",
@@ -1552,7 +1524,7 @@
       "id": 18,
       "type": "timeseries",
       "title": "Conda startup time",
-      "description": "Time to activate a conda environment, start its python3 and import the packages in checks/conda.sh (lsdb), in a clean shell, probed every 5 minutes. The same environment is installed in three locations: shire (solid), shiren (dotted) and astro-gadget's home directory on helios (dashed). A location that fails or takes over 60 s has no point here.",
+      "description": "Time to activate a conda environment, start its python3 and import the packages in checks/conda.sh (numpy, pandas, astropy, torch, lsdb), in a clean shell, probed every 5 minutes. The same environment is installed in three locations: shire (solid), shiren (dotted) and astro-gadget's home directory on helios (dashed). A location that fails or takes over 60 s has no point here.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1686,8 +1658,8 @@
     {
       "id": 19,
       "type": "timeseries",
-      "title": "Conda startup stages, shire: $conda_host",
-      "description": "Where the startup time goes for the environment on shire, stacked. activate: source conda.sh and conda activate (this runs conda's own Python, from the same location). python: start the environment's python3 and print. import: import each package, in one interpreter. A location that hangs shows only the stages it finished.",
+      "title": "Package import time, shire",
+      "description": "Time to import each package from the environment on shire, as part of the startup time above. They are imported in this order (numpy, pandas, astropy, torch, lsdb) in one interpreter, so each is the time that package adds on top of those before it (pandas without numpy, which it loads first). Solid: arnor, dashed: gondor. A location that hangs shows only the packages it finished.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1704,29 +1676,9 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shire\", stage=\"activate\"}",
-          "legendFormat": "activate",
+          "expr": "gadget_conda_seconds{host=~\"$host\", env=\"shire\", stage=\"import\"}",
+          "legendFormat": "{{host}} {{package}}",
           "refId": "A",
-          "range": true
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shire\", stage=\"python\"}",
-          "legendFormat": "python",
-          "refId": "B",
-          "range": true
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shire\", stage=\"import\"}",
-          "legendFormat": "import {{package}}",
-          "refId": "C",
           "range": true
         }
       ],
@@ -1735,22 +1687,18 @@
           "unit": "s",
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 70,
+            "lineWidth": 2,
+            "fillOpacity": 0,
             "showPoints": "never",
             "spanNulls": 600000,
-            "axisSoftMin": 0,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            }
+            "axisSoftMin": 0
           }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/^activate/"
+              "options": "/ numpy$/"
             },
             "properties": [
               {
@@ -1765,7 +1713,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/^python/"
+              "options": "/ pandas$/"
             },
             "properties": [
               {
@@ -1780,7 +1728,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/^import/"
+              "options": "/ astropy$/"
             },
             "properties": [
               {
@@ -1788,6 +1736,54 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d55181"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ torch$/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ lsdb$/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#e66767"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gondor /"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
                 }
               }
             ]
@@ -1802,18 +1798,15 @@
         },
         "tooltip": {
           "mode": "multi",
-          "sort": "none"
+          "sort": "desc"
         }
-      },
-      "repeat": "conda_host",
-      "repeatDirection": "h",
-      "maxPerRow": 2
+      }
     },
     {
       "id": 20,
       "type": "timeseries",
-      "title": "Conda startup stages, shiren: $conda_host",
-      "description": "Where the startup time goes for the environment on shiren, stacked. activate: source conda.sh and conda activate (this runs conda's own Python, from the same location). python: start the environment's python3 and print. import: import each package, in one interpreter. A location that hangs shows only the stages it finished.",
+      "title": "Package import time, shiren",
+      "description": "Time to import each package from the environment on shiren, as part of the startup time above. They are imported in this order (numpy, pandas, astropy, torch, lsdb) in one interpreter, so each is the time that package adds on top of those before it (pandas without numpy, which it loads first). Solid: arnor, dashed: gondor. A location that hangs shows only the packages it finished.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1830,29 +1823,9 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shiren\", stage=\"activate\"}",
-          "legendFormat": "activate",
+          "expr": "gadget_conda_seconds{host=~\"$host\", env=\"shiren\", stage=\"import\"}",
+          "legendFormat": "{{host}} {{package}}",
           "refId": "A",
-          "range": true
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shiren\", stage=\"python\"}",
-          "legendFormat": "python",
-          "refId": "B",
-          "range": true
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"shiren\", stage=\"import\"}",
-          "legendFormat": "import {{package}}",
-          "refId": "C",
           "range": true
         }
       ],
@@ -1861,22 +1834,18 @@
           "unit": "s",
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 70,
+            "lineWidth": 2,
+            "fillOpacity": 0,
             "showPoints": "never",
             "spanNulls": 600000,
-            "axisSoftMin": 0,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            }
+            "axisSoftMin": 0
           }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/^activate/"
+              "options": "/ numpy$/"
             },
             "properties": [
               {
@@ -1891,7 +1860,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/^python/"
+              "options": "/ pandas$/"
             },
             "properties": [
               {
@@ -1906,7 +1875,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/^import/"
+              "options": "/ astropy$/"
             },
             "properties": [
               {
@@ -1914,6 +1883,54 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d55181"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ torch$/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ lsdb$/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#e66767"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gondor /"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
                 }
               }
             ]
@@ -1928,18 +1945,15 @@
         },
         "tooltip": {
           "mode": "multi",
-          "sort": "none"
+          "sort": "desc"
         }
-      },
-      "repeat": "conda_host",
-      "repeatDirection": "h",
-      "maxPerRow": 2
+      }
     },
     {
       "id": 21,
       "type": "timeseries",
-      "title": "Conda startup stages, home: $conda_host",
-      "description": "Where the startup time goes for the environment on home, stacked. activate: source conda.sh and conda activate (this runs conda's own Python, from the same location). python: start the environment's python3 and print. import: import each package, in one interpreter. A location that hangs shows only the stages it finished.",
+      "title": "Package import time, home",
+      "description": "Time to import each package from the environment on home, as part of the startup time above. They are imported in this order (numpy, pandas, astropy, torch, lsdb) in one interpreter, so each is the time that package adds on top of those before it (pandas without numpy, which it loads first). Solid: arnor, dashed: gondor. A location that hangs shows only the packages it finished.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -1956,29 +1970,9 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"home\", stage=\"activate\"}",
-          "legendFormat": "activate",
+          "expr": "gadget_conda_seconds{host=~\"$host\", env=\"home\", stage=\"import\"}",
+          "legendFormat": "{{host}} {{package}}",
           "refId": "A",
-          "range": true
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"home\", stage=\"python\"}",
-          "legendFormat": "python",
-          "refId": "B",
-          "range": true
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "gadget_conda_seconds{host=\"$conda_host\", env=\"home\", stage=\"import\"}",
-          "legendFormat": "import {{package}}",
-          "refId": "C",
           "range": true
         }
       ],
@@ -1987,22 +1981,18 @@
           "unit": "s",
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 70,
+            "lineWidth": 2,
+            "fillOpacity": 0,
             "showPoints": "never",
             "spanNulls": 600000,
-            "axisSoftMin": 0,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            }
+            "axisSoftMin": 0
           }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/^activate/"
+              "options": "/ numpy$/"
             },
             "properties": [
               {
@@ -2017,7 +2007,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/^python/"
+              "options": "/ pandas$/"
             },
             "properties": [
               {
@@ -2032,7 +2022,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/^import/"
+              "options": "/ astropy$/"
             },
             "properties": [
               {
@@ -2040,6 +2030,54 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#d55181"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ torch$/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/ lsdb$/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#e66767"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^gondor /"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
                 }
               }
             ]
@@ -2054,12 +2092,9 @@
         },
         "tooltip": {
           "mode": "multi",
-          "sort": "none"
+          "sort": "desc"
         }
-      },
-      "repeat": "conda_host",
-      "repeatDirection": "h",
-      "maxPerRow": 2
+      }
     },
     {
       "id": 22,
