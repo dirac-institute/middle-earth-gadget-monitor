@@ -62,6 +62,11 @@ Where the build differs from the original plan:
   **Postgres** dashboard. The database-side work is done on the database VM so
   the monitor holds no database credentials; the collector filters what it
   imports by name prefix and line count to protect the series budget.
+- **Added after the plan: Globus Connect Server** (#2). The collector asks
+  each node in `config/globus.toml` (rohan1-3) for the GCS Manager's
+  unauthenticated `/api/info` every minute and records healthy, unhealthy,
+  unreachable (or unknown, with no Globus domain configured), on a **Globus**
+  dashboard. No change to the Globus container was needed.
 - **Added after the plan: JupyterHub probe** (part of #1). The collector
   asks each hub in `config/jupyterhubs.toml` for its API root (`hub/api`,
   no token needed) every minute, and the `jupyterhub` check counts the hub,
@@ -466,7 +471,7 @@ from a corrupt local database: `podman compose down`, move
 service.conf             astro-gadget identity (done)
 init.sh                  + /local dirs, restore logic, grafana secret, --fresh / --restore-from
 compose.yaml             victoriametrics, grafana, collector, backup
-collector/               Dockerfile, collector.py + ssh_checks.py, ssh_login.py, websites.py, postgres.py, jupyterhub.py, metrics_storage.py
+collector/               Dockerfile, collector.py + ssh_checks.py, ssh_login.py, websites.py, postgres.py, globus.py, jupyterhub.py, metrics_storage.py
 agent/agent.py           remote agent (stdlib, py3.9)
 checks/                  cpu.sh, load.sh, memory.sh
 config/hosts.toml        arnor, gondor: hostname, user, enabled checks
