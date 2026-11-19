@@ -27,3 +27,7 @@ address = "mpg.astro.washington.edu"
 [[service_vm]]
 name = "dpg"
 address = "dpg.astro.washington.edu"
+
+[[service_vm]]
+name = "vga"
+address = "vga.astro.washington.edu"

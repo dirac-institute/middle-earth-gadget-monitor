@@ -610,6 +610,21 @@
           {
             "matcher": {
               "id": "byRegexp",
+              "options": "/^vga /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
               "options": "/ total$/"
             },
             "properties": [
@@ -736,6 +751,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^vga /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
                 }
               }
             ]
@@ -882,6 +912,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^vga /"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
                 }
               }
             ]
