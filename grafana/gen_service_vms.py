@@ -20,8 +20,8 @@ M = 'service_vm=~"$service_vm"'
 F = 'service_vm=~"$service_vm", mountpoint=~"$mountpoint"'
 R = "[$__rate_interval]"
 LEGEND = {"displayMode": "list", "placement": "bottom", "showLegend": True}
-# dataviz categorical slots 1-3 (dark). mpg and dpg keep these on Postgres too.
-VM_COLORS = {"gadget": "#3987e5", "mpg": "#d95926", "dpg": "#199e70"}
+# dataviz categorical slots 1-4 (dark). mpg and dpg keep these on Postgres too.
+VM_COLORS = {"gadget": "#3987e5", "mpg": "#d95926", "dpg": "#199e70", "vga": "#c98500"}
 pid = 0
 
 def target(expr, legend, ref="A", instant=False):
