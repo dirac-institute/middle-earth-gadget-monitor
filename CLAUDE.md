@@ -10,12 +10,17 @@ needed.
 
 - The production stack runs from `/root/middle-earth-gadget-monitor` (podman
   compose project `gadget-monitor`, containers `gadget-monitor-{vm,grafana,
-  collector,backup}`). Grafana is at `127.0.0.1:8080`, behind the VM's
-  reverse proxy at https://gadget.astro.washington.edu/.
+  collector,backup,service-vm}`). Grafana is at `127.0.0.1:8080`, behind the
+  VM's reverse proxy at https://gadget.astro.washington.edu/.
+- **It runs rootless, in astro-gadget's podman.** Every podman command for it
+  is `sudo -u astro-gadget podman ...`; root's `podman ps` shows nothing. See
+  DEPLOY.md, "Rootless podman".
 - Container names and the project name are fixed, so
-  `podman compose up -d --build --force-recreate` from **any** checkout of
-  this repo (with a copy of `.env`) replaces the live containers. That is how
-  changes are tested: there is no separate test stack.
+  `sudo -u astro-gadget podman compose up -d --build --force-recreate` from
+  **any** checkout of this repo (with a copy of `.env`) replaces the live
+  containers. That is how changes are tested: there is no separate test
+  stack. astro-gadget must be able to read the checkout (`init.sh` grants
+  traverse on `/root`).
 - `.env` is written by `init.sh` and is not in git. Secrets live on
   `/service/shire`, owned by `astro-gadget` with mode 600; read them with
   `sudo -u astro-gadget` (root is squashed on that NFS share).
@@ -26,7 +31,7 @@ needed.
 
 There is no test suite. Test against the real thing:
 
-- **A check script:** run it on a target by hand (the `podman exec ... 'bash -s'`
+- **A check script:** run it on a target by hand (the `sudo -u astro-gadget podman exec ... 'bash -s'`
   command in README.md, "Adding a check"). Check the output follows the rules
   listed there (Prometheus text, bounded labels, cheap, exit 0).
 - **Dashboards:** edit the generator, never the JSON, then regenerate:
@@ -45,7 +50,7 @@ There is no test suite. Test against the real thing:
   has `disableDeletion: false`, so redeploying `main` removes it again.
 - **Query the database** (port 8428 is not published to the host):
   ```bash
-  podman exec gadget-monitor-collector python3 -c "import sys,urllib.request,urllib.parse; print(urllib.request.urlopen('http://victoriametrics:8428/api/v1/query?query='+urllib.parse.quote(sys.argv[1])).read().decode())" 'gadget_check_success'
+  sudo -u astro-gadget podman exec gadget-monitor-collector python3 -c "import sys,urllib.request,urllib.parse; print(urllib.request.urlopen('http://victoriametrics:8428/api/v1/query?query='+urllib.parse.quote(sys.argv[1])).read().decode())" 'gadget_check_success'
   ```
   The collector's own metrics (`gadget_check_success`, `gadget_check_status`,
   `gadget_check_lines_dropped`, `gadget_ssh_connected`, ...) show whether a
@@ -58,7 +63,7 @@ There is no test suite. Test against the real thing:
 
 - **`backup/` and `init.sh`.** The backup container rewrites the only off-VM
   copy (`/service/shire/gadget-monitor/backup`) at :07 every hour. Test backup
-  changes with a one-off `podman run` of the backup image against scratch
+  changes with a one-off `sudo -u astro-gadget podman run` of the backup image against scratch
   directories (copies of `/local/gadget-monitor` data, a scratch `/shire`),
   never the real mounts.
 - **Image version bumps** (Grafana, VictoriaMetrics, base images). A newer

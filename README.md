@@ -3,11 +3,12 @@
 Monitoring for the `arnor` and `gondor` JupyterHub/compute hosts on UW DiRAC
 infrastructure, and for `shire`, the NFS server they share. Small check scripts run on the targets over persistent SSH
 sessions every 5 minutes; results go into VictoriaMetrics and are graphed in
-Grafana. Everything runs in containers on one VM and deploys with:
+Grafana. Everything runs in containers on one VM, in the service account's
+own (rootless) podman, and deploys with:
 
 ```bash
 sudo ./init.sh
-podman compose up -d --build
+sudo -u astro-gadget podman compose up -d --build
 ```
 
 The dashboards are at the VM's URL (the VM's reverse proxy terminates TLS and
@@ -28,7 +29,7 @@ whose password is on shire (see `SECRETS.md`).
 ## How it works
 
 ```
- arnor, gondor, shire               this VM (podman compose)
+ arnor, gondor, shire               this VM (rootless podman compose)
  ┌──────────────┐   one SSH session   ┌───────────┐  import  ┌─────────────────┐
  │ remote agent │◄═══════════════════►│ collector ├─────────►│ victoriametrics │◄── grafana :8080
  │ (python3)    │   per host, kept    └───────────┘          └────────▲────────┘
@@ -98,7 +99,7 @@ Rules:
 To try a check by hand from the VM:
 
 ```bash
-podman exec -i gadget-monitor-collector ssh -T -F /dev/null -i /dev/shm/gadget-ssh-key \
+sudo -u astro-gadget podman exec -i gadget-monitor-collector ssh -T -F /dev/null -i /dev/shm/gadget-ssh-key \
     -o UserKnownHostsFile=/srv/config/known_hosts \
     astro-gadget@arnor.astro.washington.edu 'bash -s' < checks/mycheck.sh
 ```
@@ -354,7 +355,7 @@ collector and regenerate the Hosts overview dashboard (it has an import panel
 per location). To rebuild one location by hand:
 
 ```bash
-podman exec -i gadget-monitor-collector ssh -T -F /dev/null -i /dev/shm/gadget-ssh-key \
+sudo -u astro-gadget podman exec -i gadget-monitor-collector ssh -T -F /dev/null -i /dev/shm/gadget-ssh-key \
     -o UserKnownHostsFile=/srv/config/known_hosts astro-gadget@arnor.astro.washington.edu \
     "bash -s -- /astro/store/shiren/gadget/conda-probe $(base64 -w0 conda/environment.yml)" < conda/setup.sh
 ```

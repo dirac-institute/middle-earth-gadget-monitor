@@ -39,7 +39,7 @@ sudo -u astro-gadget install -m 0600 /path/to/new-password \
 
 To rotate the key, put the new private key in place (as astro-gadget, mode
 0600), add the new public key on the targets, then
-`podman compose up -d --force-recreate collector`.
+`sudo -u astro-gadget podman compose up -d --force-recreate collector`.
 
 ## The Grafana admin password
 
@@ -49,7 +49,7 @@ authoritative. That holds even after restoring a `grafana.db` from backup
 that has a different password.
 
 To change it, write the new password to the file and run
-`podman compose restart grafana`.
+`sudo -u astro-gadget podman compose restart grafana`.
 
 Anonymous visitors get read-only access (Viewer). The admin account is for
 editing datasources, users and settings.

@@ -13,7 +13,7 @@ The wrapper script that started you will put the live stack back exactly as it
 was once your session ends (it stops the session after you've been idle a few
 minutes), so you are free to deploy your branch from this clone to test it. Still leave things tidy: if you finish early, redeploy from
 `/root/middle-earth-gadget-monitor` yourself
-(`cd /root/middle-earth-gadget-monitor && podman compose up -d --build --force-recreate`)
+(`cd /root/middle-earth-gadget-monitor && sudo -u astro-gadget podman compose up -d --build --force-recreate`)
 and check the containers come back up.
 
 You may not be the first session tonight. When a session reports that it

@@ -5,7 +5,8 @@ and `shire`, their NFS server.
 Checks run over SSH every few minutes, results go into a time-series
 database, and Grafana provides the graphs. Everything runs in containers on
 this VM, deployed the same way as the Middle-earth example this repo was
-built from: clone, `sudo ./init.sh`, `podman compose up -d --build`.
+built from: clone, `sudo ./init.sh`, `podman compose up -d --build` (as the
+service account: the stack runs rootless, see the status list).
 
 ## Status (2026-10-27)
 
@@ -22,6 +23,11 @@ Where the build differs from the original plan:
   data.
 - **Grafana and the collector are custom images** with provisioning, checks
   and config baked in, so a deploy is fully described by the repo.
+- **Rootless** (#6). The containers run in astro-gadget's own podman rather
+  than root's, so a container breakout gets the low-privilege service
+  account, not root. They already ran as astro-gadget's uid; `init.sh` adds
+  subordinate ids, lingering, a user `podman-restart` unit and keep-id, and
+  `/local` and shire needed no change (DEPLOY.md, "Rootless podman").
 - **`podman compose up` needs `--force-recreate`** to pick up a rebuilt image
   (see DEPLOY.md).
 - **`dev-startup.sh` has no fake target.** Without the key, hosts just show
@@ -100,7 +106,9 @@ Where the build differs from the original plan:
   nothing from this one. The monitor is a stdlib Python script rather than
   node_exporter, to serve a fixed ~35 series per VM. Its published port
   bypasses firewalld (podman DNAT), so no VM needs a firewall change, at the
-  cost of the numbers being readable by anyone who can reach the VM.
+  cost of the numbers being readable by anyone who can reach the VM. (Not on
+  this VM, which runs it rootless: there it is polled over the compose
+  network.)
 - **Added after the plan: conda probe** (#43). On arnor and gondor, the
   time to activate a conda environment, start its python3 and import numpy,
   pandas, astropy, torch and lsdb (each timed, #47),
@@ -424,8 +432,8 @@ At most one hour of data can be lost.
 
 ### Restore (in `init.sh`, with the stack down)
 
-Runs as astro-gadget's uid, using `podman run --user` with the backup image,
-because root can't read shire.
+Runs as astro-gadget, in its rootless podman like the rest of the stack,
+with the backup image: root can't read shire.
 
 | `/local` state | shire | Action |
 |---|---|---|
@@ -436,7 +444,7 @@ because root can't read shire.
 | not empty, no `.seeded` | any | Stop with an error. Needs a person to look |
 
 `./init.sh --restore-from=daily` restores the daily copy instead. To recover
-from a corrupt local database: `podman compose down`, move
+from a corrupt local database: `podman compose down` (as astro-gadget), move
 `/local/gadget-monitor` aside, `./init.sh`, `podman compose up -d`.
 
 ## Grafana
