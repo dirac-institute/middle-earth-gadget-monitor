@@ -3,22 +3,31 @@
 #
 #   git clone <this repo> && cd middle-earth-gadget-monitor
 #   sudo ./init.sh                      # restores local state from shire if needed
-#   podman compose up -d --build
+#   sudo -u astro-gadget podman compose up -d --build
 #
 # Options (only consulted when /local state has not been seeded yet):
 #   --fresh                  start with an empty database (refused if a backup exists)
 #   --restore-from=latest    restore from the hourly backup (default)
 #   --restore-from=daily     restore from the daily backup
 #
-# Only host-level concerns live here (packages, service account, SSH
-# hardening, directories, seeding local state). Everything else belongs in the
-# container images.
+# Only host-level concerns live here (packages, service account and its
+# rootless podman, SSH hardening, directories, seeding local state). Everything
+# else belongs in the container images.
+#
+# The containers run in the service account's own (rootless) podman, not
+# root's: every podman command, here and by hand, is `sudo -u <account> podman`.
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$REPO_DIR/.env"
 CONF_FILE="$REPO_DIR/service.conf"
+
+# Subordinate uids/gids for the service account's user namespace (the images'
+# own users, grafana's 472 for one, map into it). Above every real uid and gid
+# here (UW gids run to ~2.1e9), so it can never alias a real account's files.
+SUBID_START=3000000000
+SUBID_COUNT=65536
 
 # Fixed deployment paths. Live state is on local disk; shire holds backups and
 # secrets. See PLAN.md for why the database is not on NFS.
@@ -66,6 +75,10 @@ as_svc() {
     timeout -k 5 "$secs" setpriv --reuid="$SVC_UID" --regid="$SVC_GID" --clear-groups "$@"
 }
 
+# The service account's own podman. From / so podman never starts in a
+# directory the account can't read.
+svc_podman() { (cd / && sudo -u "$SVC_USER" podman "$@"); }
+
 # ── Packages ────────────────────────────────────────────────────────────────
 echo "== Packages =="
 need=()
@@ -78,11 +91,6 @@ else
     echo "podman and podman-compose already installed"
 fi
 podman --version
-
-# A compose restart policy only survives reboot if this unit is enabled.
-systemctl enable --now podman-restart.service >/dev/null 2>&1 \
-    && echo "podman-restart.service enabled" \
-    || warn "could not enable podman-restart.service (containers won't restart at boot)"
 
 # ── SSH hardening ───────────────────────────────────────────────────────────
 echo
@@ -127,9 +135,74 @@ if getent passwd "$SVC_UID" >/dev/null; then
         warn "uid $SVC_UID belongs to user '$have_user', expected '$SVC_USER'"
     fi
 else
-    useradd -u "$SVC_UID" -g "$SVC_GID" -M -d /nonexistent -s /bin/bash \
+    # With a home directory: rootless podman keeps its images and settings there.
+    useradd -u "$SVC_UID" -g "$SVC_GID" -m -s /bin/bash \
             -c "Service account" "$SVC_USER" 2>/dev/null
     echo "  added user $SVC_USER ($SVC_UID)"
+fi
+
+# ── Rootless podman ────────────────────────────────────────────────────────
+echo
+echo "== Rootless podman for $SVC_USER =="
+SVC_HOME="$(getent passwd "$SVC_USER" | cut -d: -f6)"
+[ -d "$SVC_HOME" ] || fatal "$SVC_USER's home $SVC_HOME does not exist; rootless podman keeps its storage there"
+
+if grep -q "^$SVC_USER:" /etc/subuid && grep -q "^$SVC_USER:" /etc/subgid; then
+    echo "  ok   subordinate ids $(grep "^$SVC_USER:" /etc/subuid | cut -d: -f2-)"
+else
+    end=$((SUBID_START + SUBID_COUNT - 1))
+    usermod --add-subuids "$SUBID_START-$end" --add-subgids "$SUBID_START-$end" "$SVC_USER"
+    echo "  added subordinate ids $SUBID_START-$end"
+fi
+
+# Lingering runs the account's systemd without a login: rootless podman needs
+# its /run/user directory, and the containers must outlive any session.
+loginctl enable-linger "$SVC_USER"
+for _ in $(seq 20); do [ -d "/run/user/$SVC_UID" ] && break; sleep 0.5; done
+[ -d "/run/user/$SVC_UID" ] || fatal "$SVC_USER's user manager did not start (/run/user/$SVC_UID missing)"
+echo "  ok   lingering on"
+
+# The user-level twin of the system podman-restart.service: lingering starts
+# the account's systemd at boot, which starts this, which starts every
+# `restart: unless-stopped` container.
+if systemctl --user -M "$SVC_USER@" enable podman-restart.service >/dev/null 2>&1; then
+    echo "  ok   podman-restart.service enabled for $SVC_USER"
+else
+    warn "could not enable $SVC_USER's podman-restart.service (containers won't restart at boot)"
+fi
+
+# keep-id maps the account's uid to itself inside each container, so
+# `user: ${SVC_UID}` in compose.yaml is the real account and can use its own
+# bind mounts (/local, shire, the SSH key). Without it that uid would be a
+# subordinate id and the mounts unreadable. Set here rather than in
+# compose.yaml because Docker (dev-startup.sh) has no such mode.
+conf="$SVC_HOME/.config/containers/containers.conf"
+if as_svc 10 grep -qs '^userns = "keep-id"' "$conf"; then
+    echo "  ok   keep-id by default ($conf)"
+elif as_svc 10 test -e "$conf"; then
+    warn "$conf exists without userns = \"keep-id\" under [containers]; add it by hand"
+else
+    as_svc 10 mkdir -p "$(dirname "$conf")"
+    as_svc 10 sh -c 'printf "[containers]\nuserns = \"keep-id\"\n" > "$1"' _ "$conf"
+    echo "  added keep-id by default ($conf)"
+fi
+
+# The account runs compose from this checkout, so it must be able to reach it.
+# Grant just traverse (x) on any parent it can't get through, like /root.
+# Top down, since a directory below one it can't traverse looks blocked too.
+d=""
+IFS=/ read -ra parts <<<"${REPO_DIR#/}"
+for part in "${parts[@]}"; do
+    d="$d/$part"
+    if ! as_svc 10 test -x "$d"; then
+        setfacl -m "u:$SVC_USER:x" "$d"
+        echo "  added traverse for $SVC_USER on $d"
+    fi
+done
+if as_svc 10 test -r "$REPO_DIR/compose.yaml"; then
+    echo "  ok   $SVC_USER can read $REPO_DIR"
+else
+    warn "$SVC_USER cannot read $REPO_DIR/compose.yaml; check permissions on the checkout"
 fi
 
 # ── Local state directories ────────────────────────────────────────────────
@@ -242,13 +315,13 @@ elif ! is_empty "$LOCAL_DIR/vm" || ! is_empty "$LOCAL_DIR/grafana"; then
 else
     SRC="$SHIRE_DIR/backup/$RESTORE_FROM"
     if as_svc 60 test -f "$SRC/BACKUP_COMPLETE"; then
-        if podman ps --format '{{.Names}}' | grep -q '^gadget-monitor-'; then
-            fatal "gadget-monitor containers are running; 'podman compose down' before restoring"
+        if svc_podman ps --format '{{.Names}}' | grep -q '^gadget-monitor-'; then
+            fatal "gadget-monitor containers are running; 'sudo -u $SVC_USER podman compose down' before restoring"
         fi
         [ "$FRESH" -eq 0 ] || fatal "--fresh refused: a backup exists at $SRC; restoring it instead is the safe choice"
         echo "  restoring from $SRC ($(as_svc 60 cat "$SRC/BACKUP_COMPLETE"))"
-        podman build -q -t "$BACKUP_IMAGE" "$REPO_DIR/backup" >/dev/null
-        podman run --rm --user "$SVC_UID:$SVC_GID" \
+        svc_podman build -q -t "$BACKUP_IMAGE" "$REPO_DIR/backup" >/dev/null
+        svc_podman run --rm --user "$SVC_UID:$SVC_GID" \
             -v "$LOCAL_DIR:/data:z" -v "$SHIRE_DIR/backup:/shire:ro" \
             "$BACKUP_IMAGE" /usr/local/bin/restore.sh "$RESTORE_FROM"
         echo "  ok   restored"
@@ -269,4 +342,4 @@ if [ "$WARNINGS" -gt 0 ]; then
 else
     echo "init complete."
 fi
-echo "Next: podman compose up -d --build"
+echo "Next: sudo -u $SVC_USER podman compose up -d --build"
