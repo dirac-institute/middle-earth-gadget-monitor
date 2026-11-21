@@ -57,10 +57,14 @@ flock -n 9 || { echo "$(date -u +%FT%TZ) nightly: already running; exiting"; exi
 
 log() { echo "$(date -u +%FT%TZ) nightly: $*"; }
 
+# The stack runs in the service account's rootless podman (DEPLOY.md,
+# "Rootless podman"). From / so podman never starts in a directory it can't read.
+svc_podman() { (cd / && sudo -u astro-gadget podman "$@"); }
+
 # What is running now: container, image, and the checkout it was deployed from.
 # Deploying from the clone changes the last field even if the images match.
 live_state() {
-    podman ps -a --filter label=idac.service=gadget-monitor \
+    svc_podman ps -a --filter label=idac.service=gadget-monitor \
         --format '{{.Names}} {{.ImageID}} {{.State}} {{index .Labels "com.docker.compose.project.working_dir"}}' \
         | sort
 }
@@ -136,14 +140,14 @@ restore_live() {
         return
     fi
     log "live stack changed; redeploying from $LIVE"
-    (cd "$LIVE" && podman compose up -d --build --force-recreate) || log "ERROR: redeploy failed"
+    (cd "$LIVE" && sudo -u astro-gadget podman compose up -d --build --force-recreate) || log "ERROR: redeploy failed"
     sleep 60
-    podman ps --filter label=idac.service=gadget-monitor --format '{{.Names}} {{.Status}}'
+    svc_podman ps --filter label=idac.service=gadget-monitor --format '{{.Names}} {{.Status}}'
     # Expect every container that was running before the night to be up again,
     # rather than a fixed count that goes stale when a service is added.
     local want have
     want="$(grep -c ' running ' <<<"$BEFORE")"
-    have="$(podman ps -q --filter label=idac.service=gadget-monitor | wc -l)"
+    have="$(svc_podman ps -q --filter label=idac.service=gadget-monitor | wc -l)"
     if [ "$have" -lt "$want" ]; then
         log "ERROR: $have containers up after the redeploy; $want were running before"
         return 1

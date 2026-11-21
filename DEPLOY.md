@@ -10,8 +10,12 @@ and forwards to `127.0.0.1:8080`.
 git clone <this repo> /root/middle-earth-gadget-monitor
 cd /root/middle-earth-gadget-monitor
 sudo ./init.sh            # see "Seeding local state" below
-podman compose up -d --build
+sudo -u astro-gadget podman compose up -d --build
 ```
+
+The containers run in astro-gadget's own podman (rootless), not root's: every
+`podman` command for this stack is `sudo -u astro-gadget podman ...`, run from
+the checkout. Root's `podman ps` shows nothing. See "Rootless podman" below.
 
 On the very first deployment there is no backup yet, so `init.sh` stops and
 asks for `--fresh`:
@@ -23,8 +27,8 @@ sudo ./init.sh --fresh
 Then verify:
 
 ```bash
-podman ps                                   # five gadget-monitor-* containers, Up
-podman logs gadget-monitor-collector        # "<host>: agent up ..." for arnor, gondor, shire
+sudo -u astro-gadget podman ps                                   # five gadget-monitor-* containers, Up
+sudo -u astro-gadget podman logs gadget-monitor-collector        # "<host>: agent up ..." for arnor, gondor, shire
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/   # 200
 ```
 
@@ -37,7 +41,7 @@ internals** shows an age under an hour.
 | File | Role |
 |---|---|
 | `service.conf` | Service account name, uid and gid (astro-gadget). The single source of truth; everything else reads it via `.env` |
-| `init.sh` | Host-level setup only: podman, the service account, SSH hardening, `/local` and shire directories, the Grafana admin password, `.env`, seeding/restoring local state, and (over SSH on arnor) the conda probe's environments |
+| `init.sh` | Host-level setup only: podman, the service account and its rootless podman, SSH hardening, `/local` and shire directories, the Grafana admin password, `.env`, seeding/restoring local state, and (over SSH on arnor) the conda probe's environments |
 | `compose.yaml` | The five containers and their mounts |
 | `collector/` | Collector image: `collector.py` (VictoriaMetrics writer, SSH key, startup) and one module per kind of probe: `ssh_checks.py` (persistent SSH sessions, check scheduler), `ssh_login.py` (login probe), `websites.py` (website probe), `postgres.py` (PostgreSQL servers), `jupyterhub.py` (JupyterHubs), `service_vms.py` (service VM resources), `metrics_storage.py` (metrics database size and free space on `/local`); plus the agent, checks and config copied in |
 | `agent/agent.py` | Remote agent, sent to each target over the SSH session. Python 3.9, stdlib only |
@@ -65,9 +69,65 @@ internals** shows an age under an hour.
 | `gadget-monitor-backup` | built from `backup/` | `/local/gadget-monitor`, shire `backup/` | compose network |
 | `gadget-monitor-service-vm` | built from `monitoring/` | none (the VM's `/` read-only at `/host`) | port 9110 on every interface |
 
-All five run as astro-gadget (uid 1734450). That is required to read the
-secrets and write the backups on shire, which is exported with
-`root_squash`.
+All five run as astro-gadget (uid 1734450), in astro-gadget's own podman.
+That uid is required to read the secrets and write the backups on shire,
+which is exported with `root_squash`.
+
+## Rootless podman
+
+The stack runs in astro-gadget's rootless podman: a container that breaks out
+is astro-gadget, not root. `init.sh` sets up what that needs:
+
+- **Subordinate uids and gids** (`astro-gadget:3000000000:65536` in
+  `/etc/subuid` and `/etc/subgid`), for the images' own users (grafana's 472,
+  for one). The range is above every real uid and gid here (UW gids reach
+  ~2.1e9), so it can't alias anyone's files.
+- **Lingering** (`loginctl enable-linger astro-gadget`): astro-gadget's
+  systemd runs without a login, which gives podman its `/run/user/<uid>` and
+  keeps the containers up after any session ends.
+- **astro-gadget's `podman-restart.service`** (a user unit), which lingering
+  starts at boot, and which starts every `restart: unless-stopped` container.
+- **`userns = "keep-id"`** in `~astro-gadget/.config/containers/containers.conf`.
+  It maps uid 1734450 inside each container to the real astro-gadget, so
+  `user: ${SVC_UID}` in `compose.yaml` can use its bind mounts (`/local`,
+  shire, the SSH key). Without it that uid would be a subordinate id and the
+  mounts unreadable. It's not in `compose.yaml` because Docker
+  (`dev-startup.sh`) has no such mode.
+- **Traverse (`x`) ACLs** on any parent of the checkout that astro-gadget
+  can't get through (`/root` for `/root/middle-earth-gadget-monitor`), so it
+  can read the checkout it runs compose from.
+
+The images live in `~astro-gadget/.local/share/containers` (about 3.5 GB, on
+`/`). Published ports go through a userspace forwarder rather than DNAT, so
+unlike a rootful stack they are subject to firewalld: Grafana's
+`127.0.0.1:8080` is unaffected, but port 9110 is not reachable from other
+hosts (nothing needs it). Rootless networking also can't reach this VM's own
+public address from inside a container, so the collector polls this VM's
+monitor as `monitoring:9110` over the compose network
+(`config/service_vms.toml`).
+
+### Moving a rootful deployment to rootless
+
+Once, on a VM where root's podman runs the stack (as it did before #6):
+
+```bash
+cd /root/middle-earth-gadget-monitor
+git pull
+sudo ./init.sh                                    # adds the rootless setup above
+sudo -u astro-gadget podman compose build         # while the old stack still runs
+podman compose down                               # root's podman: stops the old stack
+sudo -u astro-gadget podman compose up -d
+```
+
+Nothing is copied: `/local/gadget-monitor` and shire are already
+astro-gadget's, and keep-id lets the containers use them exactly as before.
+Expect a gap of a few seconds in the data. Walk "Verifying a deployment"
+below. Do the whole move as soon as you've pulled: from then on the nightly
+wrapper (`nightly/run.sh`) looks for the live stack in astro-gadget's podman. To go back: `sudo -u astro-gadget podman compose down`, then
+`podman compose up -d` as root from a pre-rootless checkout. Once you're
+happy, free root's copy of the images (`podman image prune -a`) and
+`systemctl disable podman-restart.service` (root's), which nothing uses any
+more.
 
 ## Updating
 
@@ -76,7 +136,7 @@ After pulling changes (new checks, dashboard edits, code changes):
 ```bash
 git pull
 sudo ./init.sh                                  # safe to re-run; refreshes .env
-podman compose up -d --build --force-recreate
+sudo -u astro-gadget podman compose up -d --build --force-recreate
 ```
 
 **`--force-recreate` matters.** podman-compose rebuilds the images with
@@ -123,7 +183,7 @@ to be skipped, and each run has a 45-minute timeout. Status is reported every
 To back up by hand:
 
 ```bash
-podman exec gadget-monitor-backup /usr/local/bin/backup-once.sh
+sudo -u astro-gadget podman exec gadget-monitor-backup /usr/local/bin/backup-once.sh
 ```
 
 ## Seeding local state and restoring
@@ -143,23 +203,24 @@ podman exec gadget-monitor-backup /usr/local/bin/backup-once.sh
 back up an empty database over the good history.
 
 **New VM, or the VM's disk was lost.** Clone the repo and run `init.sh`
-(it restores `latest` automatically), then `podman compose up -d --build`.
-At most about an hour of data is lost.
+(it restores `latest` automatically), then
+`sudo -u astro-gadget podman compose up -d --build`. At most about an hour of
+data is lost.
 
 **Damaged local database:**
 
 ```bash
-podman compose down
+sudo -u astro-gadget podman compose down
 mv /local/gadget-monitor /local/gadget-monitor.broken
 sudo ./init.sh                       # or --restore-from=daily
-podman compose up -d
+sudo -u astro-gadget podman compose up -d
 ```
 
 ## Verifying a deployment
 
-1. `podman ps`: five containers `Up`. Run it again a minute later and check
-   the uptimes haven't reset.
-2. `podman logs gadget-monitor-collector`: `agent up` for every host, with
+1. `sudo -u astro-gadget podman ps`: five containers `Up`. Run it again a
+   minute later and check the uptimes haven't reset.
+2. `sudo -u astro-gadget podman logs gadget-monitor-collector`: `agent up` for every host, with
    no repeated `connect failed`.
 3. Dashboards: **Hosts overview** has data for every host; on **Gadget
    collector internals** every check is `OK` and every SSH session
@@ -172,23 +233,25 @@ podman compose up -d
    should show exactly one
    `python3 -I -u -c import sys;...` agent.
 5. **Last backup** (Gadget collector internals) shows under an hour after the first `:07`.
-6. `podman logs gadget-monitor-grafana` says `Admin folder restricted to
+6. `sudo -u astro-gadget podman logs gadget-monitor-grafana` says `Admin folder restricted to
    admins (anonymous gets 403)`, and logged out, the dashboard list shows
    only the gadget-monitor folder.
-7. Reboot the VM. Afterwards `podman ps` shows all five containers again,
-   because `podman-restart.service` is enabled by `init.sh`.
+7. Reboot the VM. Afterwards `sudo -u astro-gadget podman ps` shows all five
+   containers again: lingering starts astro-gadget's systemd at boot, and its
+   `podman-restart.service` starts them (see "Rootless podman").
 
 ## Troubleshooting
 
 | Symptom | Look at |
 |---|---|
-| A host shows SSH `Down` | `podman logs gadget-monitor-collector`. "Host key verification failed" means the target's host key changed; update `config/known_hosts` once you're sure it's legitimate. "Permission denied" means the key or account on the target. Timeouts are network problems |
+| A host shows SSH `Down` | `sudo -u astro-gadget podman logs gadget-monitor-collector`. "Host key verification failed" means the target's host key changed; update `config/known_hosts` once you're sure it's legitimate. "Permission denied" means the key or account on the target. Timeouts are network problems |
 | A check is `FAIL` | Open **Gadget collector internals → Check outcome by reason**. `error`: run the check by hand (README.md). `timeout`: the check is too slow, or something it touches is hanging. `skipped_running`: a previous run is stuck and can't be killed, which almost always means hung NFS on the target |
 | `ssh_login` slow or `FAIL` | The **Login stages** panel shows where the time goes. Slow `auth` usually means the directory service (LDAP/sssd) or the NFS home directory (`authorized_keys` lives there). Slow `shell` points at the home directory or login scripts. The persistent sessions keep collecting the other checks either way |
 | NFS queue wait high | **NFS queue wait by operation** shows which calls are waiting. High WRITE queue wait alone usually means a large write burst (the client is throttling itself); everything rising together points at the server or network. Check **Round-trip time** too. NFS graphs going blank while `nfs` stays OK means no calls finished on that filesystem: idle, or hung |
-| Gaps without failures | The collector itself was down: `podman ps`, `podman logs` |
-| **Last backup** growing (Gadget collector internals) | `podman logs gadget-monitor-backup`. `REFUSED` explains itself; otherwise check that shire is mounted and writable by astro-gadget |
-| Grafana log says the Admin folder could not be restricted | The per-user dashboard may be visible to anonymous viewers. Restart Grafana (`podman restart gadget-monitor-grafana`), or as admin open the Admin folder, Permissions, and remove the Viewer and Editor roles |
+| Gaps without failures | The collector itself was down: `sudo -u astro-gadget podman ps`, `sudo -u astro-gadget podman logs` |
+| **Last backup** growing (Gadget collector internals) | `sudo -u astro-gadget podman logs gadget-monitor-backup`. `REFUSED` explains itself; otherwise check that shire is mounted and writable by astro-gadget |
+| Grafana log says the Admin folder could not be restricted | The per-user dashboard may be visible to anonymous viewers. Restart Grafana (`sudo -u astro-gadget podman restart gadget-monitor-grafana`), or as admin open the Admin folder, Permissions, and remove the Viewer and Editor roles |
+| `sudo -u astro-gadget podman` errors, or `ps` shows nothing after a reboot | `loginctl show-user astro-gadget -p Linger` should say `yes`, and `systemctl --user -M astro-gadget@ is-enabled podman-restart.service` `enabled`. Re-running `sudo ./init.sh` puts both back. Root's `podman ps` is always empty: the stack is in astro-gadget's podman |
 | Can't log in as admin | The password is re-applied from shire on every Grafana start: `sudo -u astro-gadget cat /service/shire/gadget-monitor/secrets/grafana-admin-password` |
 
 ## VM infrastructure notes

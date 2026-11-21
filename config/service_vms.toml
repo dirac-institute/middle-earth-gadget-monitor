@@ -18,6 +18,9 @@ timeout = 10    # seconds for each poll
 [[service_vm]]
 name = "gadget"
 address = "gadget.astro.washington.edu"
+# This VM's own monitor, over the compose network. Rootless podman's network
+# can't reach the VM's own public address (connection refused).
+metrics_url = "http://monitoring:9110/metrics"
 
 # PostgreSQL VMs (middle-earth-postgres): the same names as in postgres.toml.
 [[service_vm]]
