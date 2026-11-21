@@ -1,0 +1,717 @@
+{
+  "uid": "gadget-metrics-storage",
+  "title": "Gadget metrics storage",
+  "description": "Size of gadget-monitor's own metrics database against the VM disk it lives on, and where it is heading.",
+  "tags": [
+    "gadget-monitor"
+  ],
+  "schemaVersion": 41,
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Projection",
+      "description": "Where the database is heading if data keeps arriving at the rate of the last day. If it would outgrow the /local partition before old data starts expiring, this shows the date the disk fills. Otherwise it shows the size the database levels off at once it holds a full retention period (plus up to a month, as old data is dropped a month at a time).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 10,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "(time() + gadget_local_disk_free_bytes / ((gadget_vm_data_bytes / gadget_vm_stored_samples) * (increase(gadget_vm_samples_added_total[1d]) / (tlast_over_time(gadget_vm_samples_added_total[1d]) - tfirst_over_time(gadget_vm_samples_added_total[1d])) * 86400)) * 86400) * 1000 and ((((gadget_vm_data_bytes / gadget_vm_stored_samples) * (increase(gadget_vm_samples_added_total[1d]) / (tlast_over_time(gadget_vm_samples_added_total[1d]) - tfirst_over_time(gadget_vm_samples_added_total[1d])) * 86400)) * (gadget_vm_retention_seconds + 31 * 86400) / 86400) > (gadget_vm_data_bytes + gadget_local_disk_free_bytes))",
+          "legendFormat": "Disk full on",
+          "refId": "A",
+          "range": false,
+          "instant": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "(((gadget_vm_data_bytes / gadget_vm_stored_samples) * (increase(gadget_vm_samples_added_total[1d]) / (tlast_over_time(gadget_vm_samples_added_total[1d]) - tfirst_over_time(gadget_vm_samples_added_total[1d])) * 86400)) * (gadget_vm_retention_seconds + 31 * 86400) / 86400) and ((((gadget_vm_data_bytes / gadget_vm_stored_samples) * (increase(gadget_vm_samples_added_total[1d]) / (tlast_over_time(gadget_vm_samples_added_total[1d]) - tfirst_over_time(gadget_vm_samples_added_total[1d])) * 86400)) * (gadget_vm_retention_seconds + 31 * 86400) / 86400) <= (gadget_vm_data_bytes + gadget_local_disk_free_bytes))",
+          "legendFormat": "Database levels off at",
+          "refId": "B",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "Not enough data yet"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:YYYY-MM-DD"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d03b3b"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#0ca30c"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "interval": "5m"
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Database size",
+      "description": "Everything VictoriaMetrics keeps on disk: samples and the series index.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_vm_data_bytes",
+          "legendFormat": "now",
+          "refId": "A",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "interval": "5m"
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Growth",
+      "description": "Bytes the database grows by per day before old data starts expiring: the samples ingested over the last day times the current size per stored sample.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "((gadget_vm_data_bytes / gadget_vm_stored_samples) * (increase(gadget_vm_samples_added_total[1d]) / (tlast_over_time(gadget_vm_samples_added_total[1d]) - tfirst_over_time(gadget_vm_samples_added_total[1d])) * 86400))",
+          "legendFormat": "per day",
+          "refId": "A",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "interval": "5m"
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Free on /local",
+      "description": "Free space on the VM's /local partition, which holds the database and grafana.db.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_local_disk_free_bytes",
+          "legendFormat": "free",
+          "refId": "A",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "interval": "5m"
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Retention",
+      "description": "How long VictoriaMetrics keeps data (-retentionPeriod in compose.yaml).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_vm_retention_seconds",
+          "legendFormat": "kept for",
+          "refId": "A",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "interval": "5m"
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Database and disk",
+      "description": "The database against the partition it lives on (log scale). '/local used' includes grafana.db. Above 'Backup refuses above' the backup container stops copying to shire (the 10 GB shire budget); 'Backups on shire' is the latest and daily copies together.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_vm_data_bytes",
+          "legendFormat": "Database",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_local_disk_size_bytes",
+          "legendFormat": "/local partition size",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_local_disk_size_bytes - gadget_local_disk_free_bytes",
+          "legendFormat": "/local used (all files)",
+          "refId": "C",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_storage_limit_bytes{location=\"local_vm\"}",
+          "legendFormat": "Backup refuses above",
+          "refId": "D",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "gadget_storage_bytes{location=\"shire_backup\"}",
+          "legendFormat": "Backups on shire",
+          "refId": "E",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": 900000,
+            "scaleDistribution": {
+              "type": "log",
+              "log": 10
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Database"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3274d9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "/local partition size"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d03b3b"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "/local used (all files)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8f8f8f"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Backup refuses above"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#fab219"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Backups on shire"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9085e9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "5m"
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Projected size at steady state",
+      "description": "The size the database would level off at, as estimated at each point in time, against the room it has (its own size plus the free space on /local). The disk fills if the first line goes above the second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "(((gadget_vm_data_bytes / gadget_vm_stored_samples) * (increase(gadget_vm_samples_added_total[1d]) / (tlast_over_time(gadget_vm_samples_added_total[1d]) - tfirst_over_time(gadget_vm_samples_added_total[1d])) * 86400)) * (gadget_vm_retention_seconds + 31 * 86400) / 86400)",
+          "legendFormat": "Database at steady state",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "(gadget_vm_data_bytes + gadget_local_disk_free_bytes)",
+          "legendFormat": "Space for the database",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": 900000,
+            "scaleDistribution": {
+              "type": "log",
+              "log": 10
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Database at steady state"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3274d9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Space for the database"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d03b3b"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "5m"
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Ingest",
+      "description": "Samples written to the database over the preceding day, and what each stored sample costs on disk (index included). Bytes per sample falls as VictoriaMetrics merges data into bigger, better-compressed parts, so the projection tends to err high.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "(increase(gadget_vm_samples_added_total[1d]) / (tlast_over_time(gadget_vm_samples_added_total[1d]) - tfirst_over_time(gadget_vm_samples_added_total[1d])) * 86400)",
+          "legendFormat": "Samples per day",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "(gadget_vm_data_bytes / gadget_vm_stored_samples)",
+          "legendFormat": "Bytes per stored sample",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": 900000,
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Bytes per stored sample"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: B"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "5m"
+    }
+  ]
+}

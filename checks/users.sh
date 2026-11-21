@@ -11,8 +11,9 @@
 # reset, which rate() and increase() handle).
 #
 # The user label is the one deliberate exception to "no unbounded labels": it
-# is bounded by the host's accounts, not by time. root, jhub-admin,
-# astro-gadget and system accounts (uid < 1000) are never reported.
+# is bounded by the host's accounts, not by time. root, jhub-admin, the
+# monitor's own logins (astro-gadget, astro-gadgetmon on shire) and system
+# accounts (uid < 1000) are never reported.
 #
 # memory is anonymous memory plus swap: what the user's processes hold, not
 # file cache they happened to read through. processes leaves out the systemd
@@ -30,7 +31,7 @@ while IFS=: read -r n _ u _; do name[$u]=$n; done < <(getent passwd "${uids[@]}"
 
 for u in "${uids[@]}"; do
     n=${name[$u]:-$u}
-    case $n in root|jhub-admin|astro-gadget) continue ;; esac
+    case $n in root|jhub-admin|astro-gadget|astro-gadgetmon) continue ;; esac
     d=user-$u.slice
     # The cgroup can disappear between listing and reading (user logged out).
     usec=$(awk '$1 == "usage_usec" { print $2 }' "$d/cpu.stat" 2>/dev/null)

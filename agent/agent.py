@@ -1,8 +1,9 @@
 """gadget-monitor remote agent.
 
 Runs on a monitored host for the lifetime of one SSH session. The collector
-starts it with a tiny bootstrap (see collector.py: REMOTE_CMD) that reads this
-file's source from stdin, so nothing is installed on the target.
+starts it with a tiny bootstrap (see collector/ssh_checks.py: REMOTE_CMD)
+that reads this file's source from stdin, so nothing is installed on the
+target.
 
 Protocol: newline-delimited JSON on stdin/stdout.
   -> {"type": "run", "id": 17, "check": "memory", "script": "...", "timeout": 30}

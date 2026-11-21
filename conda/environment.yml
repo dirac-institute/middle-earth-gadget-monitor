@@ -1,0 +1,19 @@
+# The conda environment the conda probe activates (README.md, "Conda probe").
+# conda/setup.sh creates it in every location in checks/conda.sh, and
+# updates them when this file changes. Every package the probe imports
+# (`PACKAGES` in checks/conda.sh) must be listed here.
+#
+# conda-forge only: Anaconda's own channels need a terms-of-service
+# acceptance and, for some organizations, a license.
+name: gadget-probe
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy
+  - pandas
+  - astropy
+  # The CPU build, the same on every host: conda-forge would otherwise pick
+  # the CUDA one only where setup.sh happens to run on a GPU host.
+  - pytorch=*=cpu*
+  - lsdb

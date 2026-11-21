@@ -86,6 +86,8 @@ def resolve_vars(g, dash, frm, to, overrides):
             else:
                 q = v.get("query")
                 q = q.get("query") if isinstance(q, dict) else q
+                # A variable's query may use the ones before it, as Grafana allows.
+                q = substitute(q or "", {k: all_text.get(k) or fmt_values(vs, True) for k, vs in out.items() if vs})
                 m = re.fullmatch(r"\s*label_values\((.+),\s*(\w+)\)\s*", q or "")
                 if not m:
                     sys.exit(f"variable {name}: unsupported query {q!r}; set it with --var {name}=...")

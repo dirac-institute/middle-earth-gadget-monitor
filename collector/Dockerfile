@@ -14,7 +14,7 @@ RUN (getent group ${SVC_GID} >/dev/null || groupadd -g ${SVC_GID} ${SVC_USER}) &
     (getent passwd ${SVC_UID} >/dev/null || \
      useradd -u ${SVC_UID} -g ${SVC_GID} -M -d /tmp -s /usr/sbin/nologin ${SVC_USER})
 
-COPY collector/collector.py /srv/collector/collector.py
+COPY collector/*.py         /srv/collector/
 COPY agent/agent.py         /srv/agent/agent.py
 COPY checks/                /srv/checks/
 COPY config/                /srv/config/
