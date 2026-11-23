@@ -8,6 +8,7 @@ kind of probe lives in its own module:
   ssh_login   times a fresh interactive SSH login to each host
   websites    fetches each URL in config/websites.toml from this VM
   postgres    liveness and metrics of each server in config/postgres.toml
+  xrootd      liveness of each server in config/xrootd.toml, up to login
   jupyterhub  whether each hub in config/jupyterhubs.toml answers, and how fast
   service_vms CPU, memory and disks of each VM in config/service_vms.toml
   storage     the size of the metrics database and the disk it lives on
@@ -120,6 +121,7 @@ async def main():
     import ssh_checks
     import ssh_login
     import websites
+    import xrootd
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     checks = ssh_checks.load_checks()
@@ -133,15 +135,17 @@ async def main():
     log.info("websites: %s", ", ".join(s.site for s in sites))
     pg_servers = postgres.load_postgres(writer)
     log.info("postgres servers: %s", ", ".join(s.name for s in pg_servers))
+    xrootd_servers = xrootd.load_xrootd(writer)
+    log.info("xrootd servers: %s", ", ".join(s.name for s in xrootd_servers))
     hubs = jupyterhub.load_jupyterhubs(writer)
     log.info("jupyterhubs: %s", ", ".join(h.name for h in hubs))
     vms = service_vms.load_service_vms(writer)
     log.info("service VMs: %s", ", ".join(m.name for m in vms))
     tasks = [asyncio.create_task(writer.run())]
-    # Websites, postgres servers, hubs and service VMs don't need the SSH key;
-    # start them before waiting on shire for it.
+    # Websites, postgres and xrootd servers, hubs and service VMs don't need
+    # the SSH key; start them before waiting on shire for it.
     tasks += [asyncio.create_task(s.probe_loop())
-              for s in sites + pg_servers + hubs + vms]
+              for s in sites + pg_servers + xrootd_servers + hubs + vms]
     tasks.append(asyncio.create_task(metrics_storage.metrics_storage_loop(writer)))
     await install_key()
     for h in hosts:
